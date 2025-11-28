@@ -1,10 +1,13 @@
 # /home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/rtmpose-l_8xb256-420e_coco-256x192.py
 
-
-import cv2, os, torch, warnings
+import cv2, os, torch, warnings, functools, csv
 import numpy as np
 from colorama import Fore, init, Style, Back
 from mmpose.apis import MMPoseInferencer
+from mmengine.registry import init_default_scope
+from utils import skeleton_links, keypoint_names, header
+
+init_default_scope("mmdet")
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 warnings.simplefilter(action="ignore", category=UserWarning)
@@ -12,12 +15,36 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 init(autoreset=True)
 
 CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
-VIDEO_PATH = "videos/video2.mp4"
-OUTPUT_PATH = "clicked_tracking_output.mp4"
-FOCAL_LENGTH = 1200  # Use your calculated F
-REAL_HEIGHT_MM = 1700  # Height of the target person
-DESIRED_RESOLUTION = (1600, 900)
+WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
 
+FOCAL_LENGTH = 1200  # use your calculated F
+REAL_HEIGHT_MM = 1760  # height of the target person
+DESIRED_RESOLUTION = (1600, 900)
+SCORE_THRESHOLD = 0.3
+
+INPUT_PATH = "videos/"
+INPUT_VIDEO = os.path.join("videos", "video_3.mp4")
+
+OUTPUT_PATH = "output/"
+OUTPUT_VIDEO = os.path.join(OUTPUT_PATH, "vis", "clicked_tracking_output.mp4")
+OUTPUT_CSV = os.path.join(OUTPUT_PATH, "keypoints_data", "keypoint_data.csv")
+
+
+# initiate csv file
+csv_file = open(OUTPUT_CSV, "w", newline="")
+writer = csv.writer(csv_file)
+
+for name in keypoint_names:
+    header.extend([f'{name}_x_m', f'{name}_y_m', f'{name}_score'])
+
+writer.writerow(header)
+
+writer.writerow(header)
+
+frame_idx = 0
+
+
+# set CUDA device for PyTorch
 device = None
 
 if torch.cuda.is_available():
@@ -26,24 +53,36 @@ if torch.cuda.is_available():
 else:
     print(f"GPU not available, using CPU...")
 
+torch.load = functools.partial(torch.load, weights_only=False)
+
 print(Fore.LIGHTBLUE_EX + "loading model (RtMPose-Large)...")
 inferencer = MMPoseInferencer(
-    pose2d=os.path.join(CONFIG_PATH, "rtmpose-l_8xb256-420e_coco-256x192.py"),
+    # pose2d=os.path.join(CONFIG_PATH, "rtmpose-l_8xb256-420e_coco-256x192.py"),
+    pose2d=os.path.join(CONFIG_PATH, "rtmpose-l_8xb256-420e_aic-coco-256x192.py"),
+    pose2d_weights=os.path.join(
+        WEIGHT_PATH,
+        "rtmpose-l_simcc-aic-coco_pt-aic-coco_420e-256x192-f016ffe0_20230126.pth",
+    ),
     device=device,
 )
 
-cap = cv2.VideoCapture(VIDEO_PATH)
-W, H = int(cap.get(3)), int(cap.get(4))
+cap = cv2.VideoCapture(INPUT_VIDEO)
+width, height = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(
+    cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+)
+# W, H = int(cap.get(3)), int(cap.get(4))
 # fps = cap.get(5)
 fps = cap.get(cv2.CAP_PROP_FPS)
-out = cv2.VideoWriter(OUTPUT_PATH, cv2.VideoWriter_fourcc(*"mp4v"), fps, (W, H))
+out = cv2.VideoWriter(
+    OUTPUT_VIDEO, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
+)
 
 selected_point = None
 selection_done = False
 
 
-# def click_event(event, x, y, flags, param):
-def click_event(event, x, y):
+def click_event(event, x, y, flags, param):
+    # def click_event(event, x, y):
     global selected_point, selection_done
     if event == cv2.EVENT_LBUTTONDOWN:
         selected_point = (x, y)
@@ -137,7 +176,7 @@ trajectory = []
 
 # reset video generator for the full loop (or continue from frame 2)
 # continue from frame 2 since frame 1 is already read
-print("Processing video...")
+print("processing video...")
 
 # create a new generator for the rest of the video
 # note: loop manually now to handle 'cap' state correctly
@@ -151,7 +190,7 @@ while True:
     result = next(inferencer(frame, return_vis=False))
     predictions = result["predictions"][0]
 
-    # TRACKING LOGIC (Closest Neighbor to LAST position)
+    # TRACKING LOGIC (closest neighbor to last position)
     target_person = None
     min_dist = float("inf")
 
@@ -162,12 +201,12 @@ while True:
     for person in predictions:
         kpts = np.array(person["keypoints"])
         if len(kpts.shape) == 3:
-            kpts = kpts[0]  # Safety unwrap
+            kpts = kpts[0]  # safely unwrap
 
         curr_x = np.mean(kpts[:, 0])
         curr_y = np.mean(kpts[:, 1])
 
-        # compare to LAST KNOWN position (not the click anymore)
+        # compare to last known position (not the click anymore)
         dist = np.sqrt((curr_x - last_center_x) ** 2 + (curr_y - last_center_y) ** 2)
 
         # Threshold: 300px jump limit to prevent switching
@@ -181,6 +220,16 @@ while True:
         if len(kpts.shape) == 3:
             kpts = kpts[0]
 
+        # print(Fore.BLACK + Back.LIGHTCYAN_EX + f'type of target_person: {type(target_person)}')
+        # print(Fore.BLACK + Back.LIGHTCYAN_EX + f'keys in target person: {target_person.keys()}')
+
+        scores = np.array(target_person["keypoint_scores"])
+
+        # print(Fore.BLACK+ Back.LIGHTCYAN_EX + f'length of shape of scores: {len(scores.shape)}')
+
+        if len(scores.shape) == 2:
+            scores = scores[0]
+
         # ppdate Tracking State
         last_center_x = np.mean(kpts[:, 0])
         last_center_y = np.mean(kpts[:, 1])
@@ -190,13 +239,13 @@ while True:
 
         if pixel_height > 50:
             z_mm = (FOCAL_LENGTH * REAL_HEIGHT_MM) / pixel_height
-            x_mm = ((last_center_x - (W / 2)) * z_mm) / FOCAL_LENGTH
+            x_mm = ((last_center_x - (width / 2)) * z_mm) / FOCAL_LENGTH
 
             curr_metric_pos = np.array([x_mm, z_mm])
 
             if previous_metric_pos is not None:
                 step = np.linalg.norm(curr_metric_pos - previous_metric_pos)
-                if step > 50:  # 50mm noise gate
+                if step > 450:  # 50mm noise gate
                     total_distance_m += step / 1000.0
                     previous_metric_pos = curr_metric_pos
             else:
@@ -207,20 +256,74 @@ while True:
 
             cv2.putText(
                 frame,
-                f"Dist: {total_distance_m:.2f}m",
-                (50, 100),
+                f"Dist: {(total_distance_m/2):.2f}m",
+                (1500, 100),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1.5,
                 (0, 255, 0),
                 3,
             )
 
-            # draw Skeleton
-            for kp in kpts:
-                cv2.circle(frame, (int(kp[0]), int(kp[1])), 4, (0, 0, 255), -1)
+            for p1_idx, p2_idx in skeleton_links:
+
+                # check if indices exists in skeleton links
+                if p1_idx < len(kpts) and p2_idx < len(kpts):
+                    # only draw if both points are confident
+                    if (
+                        scores[p1_idx] > SCORE_THRESHOLD
+                        and scores[p2_idx] > SCORE_THRESHOLD
+                    ):
+                        pt1 = (int(round(kpts[p1_idx][0])), int(round(kpts[p1_idx][1])))
+                        pt2 = (int(round(kpts[p2_idx][0])), int(round(kpts[p2_idx][1])))
+
+                    cv2.line(frame, pt1, pt2, (0, 255, 255), 1)
+
+            # draw skeleton
+            for i, kp in enumerate(kpts):
+                score = scores[i]
+
+                if score > SCORE_THRESHOLD:
+                    cv2.circle(
+                        frame,
+                        (int(round(kp[0])), int(round(kp[1]))),
+                        4,
+                        (0, 0, 255),
+                        -1,
+                    )
+
+            # save data to csv
+            # prepare row data
+            row_data = [frame_idx, round(total_distance_m, 4)]
+
+            z_m = z_mm / 1000
+            c_x = width / 2
+            c_y = height / 2
+
+            # add all keypoints
+            for i in range(17):
+                u = kpts[i][0]
+                v = kpts[i][1]
+                s = scores[i]
+
+                u_centered = u - c_x
+                v_centered = v - c_y
+
+                x_meter = (u_centered * z_m) / FOCAL_LENGTH
+
+                y_meter = -(v_centered * z_m) / FOCAL_LENGTH
+
+                # save raw float values for precision
+                row_data.extend([round(x_meter, 3), round(y_meter, 3), round(s, 4)])
+
+            writer.writerow(row_data)
+
+            frame_idx += 1
+
+            # for kp in kpts:
+            #     cv2.circle(frame, (int(kp[0]), int(kp[1])), 4, (0, 0, 255), -1)
 
     if len(trajectory) > 1:
-        cv2.polylines(frame, [np.array(trajectory)], False, (0, 255, 255), 2)
+        cv2.polylines(frame, [np.array(trajectory)], False, (0, 255, 0), 2)
 
     out.write(frame)
 
@@ -228,10 +331,12 @@ while True:
 
     # optional: show processing live (might slow it down)
     cv2.imshow("tracking", show)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-print(f"Done. Saved to {OUTPUT_PATH}")
+csv_file.close()
+print(Fore.WHITE + Back.GREEN + f"done. saved to {OUTPUT_VIDEO}")
+print(Fore.WHITE + Back.GREEN + f"csv file saved to {OUTPUT_CSV}")
