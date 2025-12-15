@@ -1,22 +1,31 @@
 import os
 from colorama import Back, Fore, Style, init
+import warnings
+
+warnings.filterwarnings("ignore")
 
 OUTPUT_DIR = "output"
 
 INPUT_DIR = "res"
 
-CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration.npz")
+CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
+
+CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
+WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
+
+TILT_CORRECTION_ANGLE = -25
 
 VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "video1.mp4"),
-    os.path.join(INPUT_DIR, "video2.mp4"),
+    os.path.join(INPUT_DIR, "cam1_20251215_120518.mp4"),
+    os.path.join(INPUT_DIR, "cam2_20251215_120518.mp4"),
 ]
 
 OUTPUT_CSV = os.path.join(OUTPUT_DIR, "multiview_skeleton_3d.csv")
 
+# MODEL_ALIAS = "rtmpose-l"
 MODEL_ALIAS = "rtmpose-l"
 
-SCORE_THRESHOLD = 0.4
+SCORE_THRESHOLD = 0.1
 
 init(autoreset=True)
 
@@ -29,7 +38,7 @@ INFO = Fore.LIGHTBLUE_EX + Back.BLACK + Style.BRIGHT
 DEBUG = Fore.LIGHTYELLOW_EX + Back.BLACK + Style.BRIGHT
 WARNING = Fore.BLACK + Back.YELLOW + Style.NORMAL
 
-skeleton_links = [
+SKELETON = [
     (0, 1),
     (0, 2),
     (1, 3),
