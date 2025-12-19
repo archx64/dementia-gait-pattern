@@ -13,7 +13,7 @@ CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
 CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
 WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
 
-TILT_CORRECTION_ANGLE = -25
+TILT_CORRECTION_ANGLE = -15
 
 VIDEO_PATHS = [
     os.path.join(INPUT_DIR, "cam1_20251215_120518.mp4"),

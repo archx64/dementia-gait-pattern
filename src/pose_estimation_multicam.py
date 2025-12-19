@@ -45,15 +45,13 @@ class PersonSelector:
                 2,
             )
 
-        # 2. Show Window and Wait for Click
-        cv2.namedWindow("SELECT PATIENT (Click & Press Space)")
+        # 2. show window and wait for click
+        cv2.namedWindow("select person (click & press spacebar)")
         cv2.setMouseCallback(
-            "SELECT PATIENT (Click & Press Space)", self.mouse_callback
+            "select person (click & press spacebar)", self.mouse_callback
         )
 
-        print(
-            "\n>>> INSTRUCTION: Click on the Patient's bounding box, then press SPACE."
-        )
+        print(INFO + "\n>>> Click on the Patient's bounding box, then press SPACE.")
 
         while True:
             # draw click marker if exists
@@ -61,7 +59,7 @@ class PersonSelector:
             if self.selected_point:
                 cv2.circle(temp_img, self.selected_point, 5, (0, 0, 255), -1)
 
-            cv2.imshow("SELECT PATIENT (Click & Press Space)", temp_img)
+            cv2.imshow("select person (click & press spacebar)", temp_img)
             k = cv2.waitKey(20) & 0xFF
             if k == 32:  # spacebar
                 if self.selected_point:
@@ -69,16 +67,16 @@ class PersonSelector:
                 else:
                     print("Please click a person first!")
 
-        cv2.destroyWindow("SELECT PATIENT (Click & Press Space)")
+        cv2.destroyWindow("select person (click & press spacebar)")
 
-        # 3. Find which bbox contains the click
+        # find which bbox contains the click
         click_x, click_y = self.selected_point
         for i, (x1, y1, x2, y2) in enumerate(bboxes):
             if x1 <= click_x <= x2 and y1 <= click_y <= y2:
-                print(f"Selected Person Index: {i}")
+                print(DEBUG + f"Selected Person Index: {i}")
                 return i
 
-        print("Click was outside all boxes. Defaulting to Person 0.")
+        print(WARNING + "\nClick was outside all boxes. Defaulting to Person 0.")
         return 0
 
     def find_matching_person_in_view(
@@ -101,7 +99,7 @@ class PersonSelector:
         for cand_idx, candidate in enumerate(cand_list):
             cand_kpts = candidate["keypoints"]
 
-            total_dist = 0
+            # total_dist = 0
             valid_pts = 0
 
             for j in test_joints:
@@ -121,6 +119,12 @@ class PersonSelector:
                     # To be more robust, we could calculate distance between rays,
                     # but for now, we assume valid triangulation = match.
                     valid_pts += 1
+
+            if valid_pts > 0:
+                # TODO
+                # calculate epipolar distance
+
+                pass
 
             if valid_pts > min_error:  # reusing var for count
                 min_error = valid_pts  # maximize points
@@ -217,11 +221,11 @@ class MultiviewTriangulator:
         for cam_idx, (u, v) in views:
             P = self.cameras[cam_idx]["P"]
 
-            # Undistort the point first for high accuracy
-            # We use the raw P matrix for approximation with distorted coords if D is small,
+            # undistort the point first for high accuracy
+            # we use the raw P matrix for approximation with distorted coords if D is small,
             # but ideally we undistort. Here we assume P includes K, so we use raw pixels
             # although we should really undistort points and use Normalized P.
-            # For simplicity/speed in Python, we use the Direct Linear Transform on raw pixels
+            # for simplicity/speed in Python, we use the Direct Linear Transform on raw pixels
             # if distortion is low. If distortion is high (fisheye), you MUST undistort first.
 
             row1 = u * P[2] - P[0]
@@ -241,7 +245,7 @@ class MultiviewTriangulator:
         )  # this methods soles singular valve decomposition
         X = vh[-1]
 
-        # Normalize Homogeneous Coordinates (X, Y, Z, W) -> (X/W, Y/W, Z/W)
+        # normalize homogeneous coordinates (X, Y, Z, W) -> (X/W, Y/W, Z/W)
         # convert from 4D hmogeneous to 3D Eculidean
         X = X / X[3]
 
@@ -260,14 +264,14 @@ def get_camera_tilt(npz_path, cam_index=0):
     prefixes = sorted(list(set([k.split("_")[0] for k in all_keys])))
 
     if cam_index >= len(prefixes):
-        print(f"Error: Camera index {cam_index} not found in {prefixes}")
+        print(ERROR + f"\ncamera index {cam_index} not found in {prefixes}\n")
         return
 
     cam_name = prefixes[cam_index]
     key_R = f"{cam_name}_R"
 
     if key_R not in data:
-        print(f"Key {key_R} not found.")
+        print(WARNING + f"\nKey {key_R} not found.\n")
         return
 
     # get rotation matrix
@@ -315,7 +319,7 @@ def main():
     caps = [cv2.VideoCapture(v) for v in VIDEO_PATHS]
     for i, cap in enumerate(caps):
         if not cap.isOpened():
-            print(ERROR + f"Could not open {VIDEO_PATHS[i]}")
+            print(ERROR + f"could not open {VIDEO_PATHS[i]}")
             return
 
     # setup triangulator
@@ -332,19 +336,82 @@ def main():
 
     writer.writerow(header)
 
+    frames_0 = []
+    for cap in caps:
+        ret, frame = cap.read()
+        if not ret:
+            return
+        frames_0.append(frame)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+    print(INFO + "detecting people in the first frame to enable selection bounding box")
+    results_0 = []
+    for frame in frames_0:
+        res = next(inferencer(frame, return_vis=False))
+        preds = res['predictions']
+
+        if len(preds) > 0 and isinstance(preds[0],list):
+            preds = preds[0]
+
+        results_0.append(preds)
+
+    # let user pick from reference camera (Cam 1)
+    selector = PersonSelector()
+    target_idx_camera0 = selector.select_person(frames_0[0], results_0[0])
+                                                
+    # get the reference keypoints for matching
+    ref_person_kpts = results_0[0][target_idx_camera0]['keypoints']
+
+    # auto_match in other cameras
+    person_indices = {0: target_idx_camera0}
+
+    print(INFO + f"tracking person {target_idx_camera0}")
+
+    for i in range(1, len(caps)):
+        candidates = results_0[i]
+        # find which person in Cam 'i' matches 'ref_person'
+        # simple Euclidean Center matching usually fails in Multiview.
+        # let's use a helper (or for now, assume only 1 person or closest to center if simple)
+        
+        # If the setup is strictly 1 patient, just picking '0' (highest conf) might work.
+        # If multiple people, geometric match is needed for robust matching
+        match_idx = selector.find_matching_person_in_view(ref_person_kpts, candidates, triangulator, 0, i)
+        
+        if match_idx is None:
+             match_idx = 0 # Fallback
+             
+        person_indices[i] = match_idx
+        print(f"cam {i}: auto-matched to person {match_idx}")
+
+    
+    prev_centroids = {}
+    for i in range(len(caps)):
+        # calculate initial centroid of the selectted patient
+        p = results_0[i][person_indices[i]]
+        bbox = p['bbox'][0]
+        cx = (bbox[0] + bbox[2]) / 2
+        cy = (bbox[1] + bbox[3]) / 2
+        prev_centroids[i] = (cx, cy)
+
+
+    # to keep track of the patient in subsquent frames
+    # let's use centroid tracking distance check
+
+    frame_idx = 0
+    print(INFO + "\nstarting N-view processing...")
+
     # setup visualization
     plt.ion()
     fig = plt.figure(figsize=(12, 8))
     ax = fig.add_subplot(111, projection="3d")
     ax.view_init(elev=20, azim=-60)
 
-    frame_idx = 0
-    print(INFO + "\n--- Starting N-view Processing ---")
-
     while True:
+
         frames = []
         rets = []
 
+        # read frames loop
         for cap in caps:
             r, f = cap.read()
             rets.append(r)
@@ -364,30 +431,94 @@ def main():
         # prepare 3D container
         pts_3d_frame = np.zeros((len(keypoint_names), 3))
 
-        # loop through each join(0..16)
-        for joint_idx in range(len(keypoint_names)):
+        # target filtering loop
+        # instead of looping all resutls, the person is firstly identified in each view
+        current_view_indices = {}
+
+        for cam_idx, predictions in enumerate(all_results):
+            if not predictions: continue
+            
+            # find the person closest to the previous centroid (Simple Tracking)
+            best_idx = -1
+            min_dist = float('inf')
+            
+            last_cx, last_cy = prev_centroids[cam_idx]
+            
+            for p_idx, person in enumerate(predictions):
+                bbox = person['bbox'][0]
+                cx = (bbox[0] + bbox[2]) / 2
+                cy = (bbox[1] + bbox[3]) / 2
+                
+                dist = np.sqrt((cx - last_cx)**2 + (cy - last_cy)**2)
+                if dist < min_dist:
+                    min_dist = dist
+                    best_idx = p_idx
+            
+            # update centroid for next frame
+            if best_idx != -1 and min_dist < 200: # Threshold in pixels
+                current_view_indices[cam_idx] = best_idx
+                
+                p = predictions[best_idx]
+                bbox = p['bbox'][0]
+                new_cx = (bbox[0] + bbox[2]) / 2
+                new_cy = (bbox[1] + bbox[3]) / 2
+                prev_centroids[cam_idx] = (new_cx, new_cy)
+            # else:
+                # person lost in this view? Keep old centroid or skip
+                # pass
+
+        # loop through each joint only for identified person
+        for joint_idx in range(17):
             valid_views = []
 
-            # check which camera saw this join with high confidence
-            for cam_idx, pred in enumerate(all_results):
-                if not pred:
-                    continue
+            for cam_idx in range(len(caps)):
+                if cam_idx not in current_view_indices:
+                    continue # Patient not found in this cam this frame
 
-                # assume person 0
-                person = pred[0]
-                kpts = person["keypoints"]
-                score = person["keypoint_scores"][joint_idx]
+                # Get the specific person we are tracking
+                p_idx = current_view_indices[cam_idx]
+                pred = all_results[cam_idx][p_idx]
+                
+                kpts = pred["keypoints"]
+                score = pred["keypoint_scores"][joint_idx]
 
-                if score > SCORE_THRESHOLD:
+                if score > 0.3: # Threshold
                     u, v = kpts[joint_idx]
                     valid_views.append((cam_idx, (u, v)))
 
-            # triangulate if there are at least two views
             if len(valid_views) >= 2:
+                # ... (Standard triangulation) ...
                 point_3d = triangulator.triangulate_one_point(valid_views)
                 pts_3d_frame[joint_idx] = point_3d
             else:
                 pts_3d_frame[joint_idx] = [np.nan, np.nan, np.nan]
+
+        # loop through each join(0..16)
+        # for joint_idx in range(len(keypoint_names)):
+        #     valid_views = []
+
+        #     # check which camera saw this join with high confidence
+        #     for cam_idx, pred in enumerate(all_results):
+        #         if not pred:
+        #             continue
+
+        #         # assume person 0
+        #         person = pred[0]
+        #         kpts = person["keypoints"]
+        #         score = person["keypoint_scores"][joint_idx]
+
+        #         if score > SCORE_THRESHOLD:
+        #             u, v = kpts[joint_idx]
+        #             valid_views.append((cam_idx, (u, v)))
+
+        #     # triangulate if there are at least two views
+        #     if len(valid_views) >= 2:
+        #         point_3d = triangulator.triangulate_one_point(valid_views)
+        #         pts_3d_frame[joint_idx] = point_3d
+        #     else:
+        #         pts_3d_frame[joint_idx] = [np.nan, np.nan, np.nan]
+
+
 
         # create rotation matrix (around X-axis)
         theta = np.radians(TILT_CORRECTION_ANGLE)
