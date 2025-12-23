@@ -29,7 +29,7 @@ SKELETON_LINKS = [
 NAMING_PATTERN = "Joint_{}"
 
 def create_bones_from_objects():
-    # Create a new armature and object
+    # create a new armature and object
     armature_data = bpy.data.armatures.new("PoseSkeleton")
     armature_obj = bpy.data.objects.new("PoseRig", armature_data)
     bpy.context.collection.objects.link(armature_obj)
@@ -47,15 +47,15 @@ def create_bones_from_objects():
         child_obj = bpy.data.objects.get(child_name)
         
         if parent_obj and child_obj:
-            # Create a new bone
+            # create a new bone
             bone = bones.new(f"Bone_{parent_idx}_{child_idx}")
             
-            # Set head (start) and tail (end)
+            # set head (start) and tail (end)
             bone.head = parent_obj.location
             bone.tail = child_obj.location
             
-            # (Optional) Connect bones if they share a joint
-            # This logic can be complex for arbitrary graphs, 
+            # connect bones if they share a joint
+            # this logic can be complex for arbitrary graphs, 
             # but usually necessary for IK.
             
         else:
@@ -65,18 +65,18 @@ def create_bones_from_objects():
     print("Skeleton generated!")
 
 def create_skeleton_viz():
-    # 1. Cleanup existing
+    # cleanup existing
     if "SkeletonCollection" in bpy.data.collections:
         coll = bpy.data.collections["SkeletonCollection"]
         for obj in coll.objects:
             bpy.data.objects.remove(obj, do_unlink=True)
         bpy.data.collections.remove(coll)
         
-    # 2. Setup Collections
+    # setup Collections
     collection = bpy.data.collections.new("SkeletonCollection")
     bpy.context.scene.collection.children.link(collection)
     
-    # 3. Create Sphere objects for joints
+    # create sphere objects for joints
     spheres = []
     for i in range(17):
         bpy.ops.mesh.primitive_uv_sphere_add(radius=0.05 * SCALE)
@@ -86,21 +86,21 @@ def create_skeleton_viz():
         bpy.context.collection.objects.unlink(obj) # Unlink from main
         spheres.append(obj)
         
-    # 4. Read CSV and Animate
+    # read CSV and Animate
     with open(CSV_PATH, 'r') as f:
         reader = csv.reader(f)
-        header = next(reader) # Skip header
+        header = next(reader) # skip header
         
         for row in reader:
             frame_idx = int(row[0])
             bpy.context.scene.frame_set(frame_idx)
             
-            # Read joints (starting col 1)
+            # read joints (starting col 1)
             for i in range(17):
                 idx = 1 + (i*3)
                 try:
                     # Parse X, Y, Z
-                    # Note: OpenCV Y is Down, Blender Z is Up.
+                    # Note: OpenCV Y is Down, Blender Z is Up
                     # We usually Map: OpenCV X -> Blender X
                     #                 OpenCV Z -> Blender -Y (Depth)
                     #                 OpenCV Y -> Blender -Z (Height, inverted)
@@ -116,7 +116,7 @@ def create_skeleton_viz():
                     obj.keyframe_insert(data_path="location", frame=frame_idx)
                     
                 except ValueError as e:
-                    # Empty data (occlusion)
+                    # empty data (occlusion)
                     print(str(e))
 
     print("animation imported!")

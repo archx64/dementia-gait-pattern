@@ -6,6 +6,8 @@ warnings.filterwarnings("ignore")
 
 OUTPUT_DIR = "output"
 
+FPS = 25
+
 INPUT_DIR = "res"
 
 CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
