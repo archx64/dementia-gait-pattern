@@ -4,6 +4,8 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
+SUBJECT_NAME = "Kaung"
+
 OUTPUT_DIR = "output"
 
 FPS = 25
@@ -23,6 +25,7 @@ VIDEO_PATHS = [
 ]
 
 OUTPUT_CSV = os.path.join(OUTPUT_DIR, "multiview_skeleton_3d.csv")
+GAITANALYSIS_CSV = os.path.join(OUTPUT_DIR, 'gait_analysis.csv')
 
 # MODEL_ALIAS = "rtmpose-l"
 MODEL_ALIAS = "rtmpose-l"
