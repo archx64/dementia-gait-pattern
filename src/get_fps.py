@@ -3,11 +3,8 @@ import cv2
 CAMERA_SOURCES = [
     "rtsp://admin:csimAIT5706@192.168.6.101:554/Streaming/Channels/101/",
     "rtsp://admin:csimAIT5706@192.168.6.100:554/Streaming/Channels/101/",
-<<<<<<< HEAD
     "rtsp://admin:csimAIT5706@192.168.6.102:554/Streaming/Channels/101/",
     "rtsp://admin:csimAIT5706@192.168.6.103:554/Streaming/Channels/101/",
-=======
->>>>>>> d6bc974ff128cfc15bfb4718e1f560a001698a46
 ]
 
 for idx, cam in enumerate(CAMERA_SOURCES):
@@ -20,8 +17,4 @@ for idx, cam in enumerate(CAMERA_SOURCES):
         fps = cap.get(cv2.CAP_PROP_FPS)
         print(f"Camera {idx+1} FPS: {fps}")
 
-<<<<<<< HEAD
     cap.release()
-=======
-    cap.release()
->>>>>>> d6bc974ff128cfc15bfb4718e1f560a001698a46

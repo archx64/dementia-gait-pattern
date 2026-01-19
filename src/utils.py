@@ -54,7 +54,7 @@ IMAGES_DIR = "new_calibration_data"
 SUBJECT_NAME = "Kaung"
 OUTPUT_DIR = "output"
 FPS = 25
-INPUT_DIR = "res"
+INPUT_DIR = "synchronized_videos"
 MODEL_ALIAS = "rtmpose-l"
 CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
 CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
@@ -62,9 +62,16 @@ WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
 
 TILT_CORRECTION_ANGLE = -17
 
+# VIDEO_PATHS = [
+#     os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
+#     os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
+# ]
+
 VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
-    os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
+    os.path.join(INPUT_DIR, "cam1_20260116_115846.avi"),
+    os.path.join(INPUT_DIR, "cam2_20260116_115846.avi"),
+    os.path.join(INPUT_DIR, "cam3_20260116_115846.avi"),
+    os.path.join(INPUT_DIR, "cam4_20260116_115846.avi"),
 ]
 
 SKELETON = [
