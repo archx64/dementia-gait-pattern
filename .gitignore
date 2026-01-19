@@ -6,4 +6,5 @@ CV/
 res/
 output/
 synchronized_videos/
-new_calibraton_data/
+calibration_2_cam/
+calibration_4_cam/

@@ -47,11 +47,11 @@ def detect_corners(cam_config):
     """Detects ChArUco corners for a single camera"""
     name = cam_config["name"]
     path = cam_config["path"]
-    print(f"[{name}] Scanning {path}...")
+    print(INFO + f"[{name}] Scanning {path}...")
 
     images = sorted(glob.glob(path))
     if not images:
-        print(f"Error: No images found for {name}!")
+        print(ERROR + f"Error: No images found for {name}!")
         return None
 
     data_dict = {}
@@ -183,7 +183,7 @@ def main():
         # print(DEBUG + f"type of res['shape']: {type(res['shape'])}, value of res['shape']: {res['shape']}")
         # print(DEBUG + f"keys in res['shape']: {res['shape'].keys()}")
 
-        print(f"solving intrinsics for {name}")
+        print(INFO + f"solving intrinsics for {name}")
 
         inputK = np.array([])
         inputD = np.array([])
@@ -201,7 +201,7 @@ def main():
         intrinsics[name] = {"K": K, "D": D, "shape": res["shape"], "rmse": ret}
 
     # let's calibrate extrinsics
-    print("\nphase 2: extrinsic stereo calibration")
+    print(INFO + "\nphase 2: extrinsic stereo calibration")
 
     # identify reference camera
     ref_cam = next((c for c in CAMERAS if c["is_reference"]), None)
@@ -247,6 +247,9 @@ def main():
             # intersect ids
             common_ids = np.intersect1d(id_ref.flatten(), id_tgt.flatten())
 
+            if len(common_ids) < 6:
+                continue
+
             # get 3d points
             obj_pts_all = board.getChessboardCorners()
             obj_pts.append(obj_pts_all[common_ids])
@@ -262,14 +265,28 @@ def main():
                 WARNING + f"only {len(obj_pts)} common frames found. Poor calibration"
             )
         else:
-            print(f"using {len(obj_pts)} common frames")
+            print(INFO + f"using {len(obj_pts)} common frames")
 
         # stereo calibration
-        print(f"solving stereo geometry...")
-        flags = cv2.CALIB_FIX_INTRINSIC
+        print(INFO + f"solving stereo geometry...")
+        # flags = cv2.CALIB_FIX_INTRINSIC
+        flags = cv2.CALIB_USE_INTRINSIC_GUESS
         criteria = (cv2.TermCriteria_MAX_ITER + cv2.TermCriteria_EPS, 100, 1e-5)
 
-        ret, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
+        # ret, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
+        #     objectPoints=obj_pts,
+        #     imagePoints1=img_pts_ref,
+        #     imagePoints2=img_pts_target,
+        #     cameraMatrix1=ref_intrinsics["K"],
+        #     distCoeffs1=ref_intrinsics["D"],
+        #     cameraMatrix2=target_intrinsics["K"],
+        #     distCoeffs2=target_intrinsics["D"],
+        #     imageSize=ref_intrinsics["shape"],
+        #     criteria=criteria,
+        #     flags=flags,
+        # )
+
+        ret, k_new, d_new, _, _, R, T, _, _ = cv2.stereoCalibrate(
             objectPoints=obj_pts,
             imagePoints1=img_pts_ref,
             imagePoints2=img_pts_target,
@@ -282,8 +299,12 @@ def main():
             flags=flags,
         )
 
-        print(f"stereo rmse: {ret:.4f}")
-        print(f"pos: {T.T}")
+        if ret < 0.5:
+            print(SUCCESS + f"stereo rmse: {ret:.4f}")
+        else:
+            print(ERROR + f"stereo rmse: {ret:.4f}")
+
+        print(DEBUG + f"pos: {T.T}")
 
         final_output["camera"][target_name] = {
             "K": target_intrinsics["K"],
@@ -301,8 +322,9 @@ def main():
         save_dict[f"{cam_name}_R"] = params["R"]
         save_dict[f"{cam_name}_T"] = params["T"]
 
-    np.savez(f"multicam_calibration_{TARGET_PAPER}.npz", **save_dict)
-    print("\nsaved all parameters to multicam_calibration.npz")
+    save_path = f"synchronized_videos/multicam_calibration_{TARGET_PAPER}.npz"
+    np.savez(save_path, **save_dict)
+    print(SUCCESS + f"\nsaved all parameters to {save_path}")
 
 
 if __name__ == "__main__":

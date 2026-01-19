@@ -22,7 +22,7 @@ SQUARES_Y = 7
 
 TARGET_PAPER = "A0"
 
-CAMERA_COUNT = 4
+
 
 PAPER_SIZES = {
     "A4": (210, 297),
@@ -46,7 +46,8 @@ if TARGET_PAPER not in PAPER_CONFIGS:
 
 SQUARES_LENGTH = PAPER_CONFIGS[TARGET_PAPER]
 MARKER_LENGTH = SQUARES_LENGTH * 0.75
-IMAGES_DIR = "new_calibration_data"
+CAMERA_COUNT = 4
+IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 # ========== calibration config end ==========
 
 
@@ -62,17 +63,25 @@ WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
 
 TILT_CORRECTION_ANGLE = -17
 
+# old synchronized videos
+VIDEO_PATHS = [
+    os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
+    os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
+]
+
+# uncomment this list for 2 camera
 # VIDEO_PATHS = [
-#     os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
-#     os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
+#     os.path.join(INPUT_DIR, "cam1_20260119_134317.avi"),
+#     os.path.join(INPUT_DIR, "cam2_20260119_134317.avi"),
 # ]
 
-VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "cam1_20260116_115846.avi"),
-    os.path.join(INPUT_DIR, "cam2_20260116_115846.avi"),
-    os.path.join(INPUT_DIR, "cam3_20260116_115846.avi"),
-    os.path.join(INPUT_DIR, "cam4_20260116_115846.avi"),
-]
+# uncomment this list for 4 camera
+# VIDEO_PATHS = [
+#     os.path.join(INPUT_DIR, "cam1_20260119_134317.avi"),
+#     os.path.join(INPUT_DIR, "cam2_20260119_134317.avi"),
+#     os.path.join(INPUT_DIR, "cam3_20260119_134317.avi"),
+#     os.path.join(INPUT_DIR, "cam4_20260119_134317.avi"),
+# ]
 
 SKELETON = [
     (0, 1),
