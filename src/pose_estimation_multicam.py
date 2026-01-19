@@ -2,9 +2,23 @@ import cv2, os, csv, torch, functools
 import numpy as np
 from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
-from utils import *
-
 from scipy.spatial.transform import Rotation as R_scipy
+
+from utils import (
+    INFO,
+    WARNING,
+    ERROR,
+    DEBUG,
+    VIDEO_PATHS,
+    CONFIG_PATH,
+    WEIGHT_PATH,
+    OUTPUT_CSV,
+    CALIBRATION_FILE,
+    TILT_CORRECTION_ANGLE,
+    SKELETON,
+    keypoint_names,
+)
+
 
 
 class PersonSelector:
@@ -113,8 +127,8 @@ class PersonSelector:
                 # triangulate
                 point_3d = triangulator.triangulate_one_point(views)
 
-                # If triangulation works, lines are close.
-                # Ideally calculate reprojection error, but checking if point is not NaN is a basic filter.
+                # if triangulation works, lines are close.
+                # ideally calculate reprojection error, but checking if point is not NaN is a basic filter.
                 if not np.isnan(point_3d[0]):
                     # To be more robust, we could calculate distance between rays,
                     # but for now, we assume valid triangulation = match.
@@ -348,9 +362,9 @@ def main():
     results_0 = []
     for frame in frames_0:
         res = next(inferencer(frame, return_vis=False))
-        preds = res['predictions']
+        preds = res["predictions"]
 
-        if len(preds) > 0 and isinstance(preds[0],list):
+        if len(preds) > 0 and isinstance(preds[0], list):
             preds = preds[0]
 
         results_0.append(preds)
@@ -358,9 +372,9 @@ def main():
     # let user pick from reference camera (Cam 1)
     selector = PersonSelector()
     target_idx_camera0 = selector.select_person(frames_0[0], results_0[0])
-                                                
+
     # get the reference keypoints for matching
-    ref_person_kpts = results_0[0][target_idx_camera0]['keypoints']
+    ref_person_kpts = results_0[0][target_idx_camera0]["keypoints"]
 
     # auto_match in other cameras
     person_indices = {0: target_idx_camera0}
@@ -372,27 +386,27 @@ def main():
         # find which person in Cam 'i' matches 'ref_person'
         # simple Euclidean Center matching usually fails in Multiview.
         # let's use a helper (or for now, assume only 1 person or closest to center if simple)
-        
+
         # If the setup is strictly 1 patient, just picking '0' (highest conf) might work.
         # If multiple people, geometric match is needed for robust matching
-        match_idx = selector.find_matching_person_in_view(ref_person_kpts, candidates, triangulator, 0, i)
-        
+        match_idx = selector.find_matching_person_in_view(
+            ref_person_kpts, candidates, triangulator, 0, i
+        )
+
         if match_idx is None:
-             match_idx = 0 # Fallback
-             
+            match_idx = 0  # Fallback
+
         person_indices[i] = match_idx
         print(f"cam {i}: auto-matched to person {match_idx}")
 
-    
     prev_centroids = {}
     for i in range(len(caps)):
         # calculate initial centroid of the selectted patient
         p = results_0[i][person_indices[i]]
-        bbox = p['bbox'][0]
+        bbox = p["bbox"][0]
         cx = (bbox[0] + bbox[2]) / 2
         cy = (bbox[1] + bbox[3]) / 2
         prev_centroids[i] = (cx, cy)
-
 
     # to keep track of the patient in subsquent frames
     # let's use centroid tracking distance check
@@ -436,36 +450,37 @@ def main():
         current_view_indices = {}
 
         for cam_idx, predictions in enumerate(all_results):
-            if not predictions: continue
-            
+            if not predictions:
+                continue
+
             # find the person closest to the previous centroid (Simple Tracking)
             best_idx = -1
-            min_dist = float('inf')
-            
+            min_dist = float("inf")
+
             last_cx, last_cy = prev_centroids[cam_idx]
-            
+
             for p_idx, person in enumerate(predictions):
-                bbox = person['bbox'][0]
+                bbox = person["bbox"][0]
                 cx = (bbox[0] + bbox[2]) / 2
                 cy = (bbox[1] + bbox[3]) / 2
-                
-                dist = np.sqrt((cx - last_cx)**2 + (cy - last_cy)**2)
+
+                dist = np.sqrt((cx - last_cx) ** 2 + (cy - last_cy) ** 2)
                 if dist < min_dist:
                     min_dist = dist
                     best_idx = p_idx
-            
+
             # update centroid for next frame
-            if best_idx != -1 and min_dist < 200: # Threshold in pixels
+            if best_idx != -1 and min_dist < 200:  # Threshold in pixels
                 current_view_indices[cam_idx] = best_idx
-                
+
                 p = predictions[best_idx]
-                bbox = p['bbox'][0]
+                bbox = p["bbox"][0]
                 new_cx = (bbox[0] + bbox[2]) / 2
                 new_cy = (bbox[1] + bbox[3]) / 2
                 prev_centroids[cam_idx] = (new_cx, new_cy)
             # else:
-                # person lost in this view? Keep old centroid or skip
-                # pass
+            # person lost in this view? Keep old centroid or skip
+            # pass
 
         # loop through each joint only for identified person
         for joint_idx in range(17):
@@ -473,16 +488,16 @@ def main():
 
             for cam_idx in range(len(caps)):
                 if cam_idx not in current_view_indices:
-                    continue # Patient not found in this cam this frame
+                    continue  # Patient not found in this cam this frame
 
                 # Get the specific person we are tracking
                 p_idx = current_view_indices[cam_idx]
                 pred = all_results[cam_idx][p_idx]
-                
+
                 kpts = pred["keypoints"]
                 score = pred["keypoint_scores"][joint_idx]
 
-                if score > 0.3: # Threshold
+                if score > 0.3:  # Threshold
                     u, v = kpts[joint_idx]
                     valid_views.append((cam_idx, (u, v)))
 
@@ -492,33 +507,6 @@ def main():
                 pts_3d_frame[joint_idx] = point_3d
             else:
                 pts_3d_frame[joint_idx] = [np.nan, np.nan, np.nan]
-
-        # loop through each join(0..16)
-        # for joint_idx in range(len(keypoint_names)):
-        #     valid_views = []
-
-        #     # check which camera saw this join with high confidence
-        #     for cam_idx, pred in enumerate(all_results):
-        #         if not pred:
-        #             continue
-
-        #         # assume person 0
-        #         person = pred[0]
-        #         kpts = person["keypoints"]
-        #         score = person["keypoint_scores"][joint_idx]
-
-        #         if score > SCORE_THRESHOLD:
-        #             u, v = kpts[joint_idx]
-        #             valid_views.append((cam_idx, (u, v)))
-
-        #     # triangulate if there are at least two views
-        #     if len(valid_views) >= 2:
-        #         point_3d = triangulator.triangulate_one_point(valid_views)
-        #         pts_3d_frame[joint_idx] = point_3d
-        #     else:
-        #         pts_3d_frame[joint_idx] = [np.nan, np.nan, np.nan]
-
-
 
         # create rotation matrix (around X-axis)
         theta = np.radians(TILT_CORRECTION_ANGLE)
@@ -579,9 +567,9 @@ def main():
             #     print(ERROR + f"Debug Frame {frame_idx}: No valid 3D points found!")
 
             # room limits - adjust these to fit the capture volume
-            ax.set_xlim(-1.5, 1.5)
+            ax.set_xlim(-5, 5)
             ax.set_ylim(0, 4.0)
-            ax.set_zlim(-1.5, 1.5)
+            ax.set_zlim(-5, 5)
             ax.set_title(f"N-view reconstructoin frame {frame_idx}")
             ax.set_xlabel("X"), ax.set_ylabel("Depth"), ax.set_zlabel("Height")
             plt.pause(0.001)
@@ -602,15 +590,5 @@ def main():
 
 
 if __name__ == "__main__":
-
-    # tilt_angle = get_camera_tilt("calibration.npz", cam_index=0)
-
-    # if abs(tilt_angle) < 0.1:
-    #     print("\nCONCLUSION: The file says 0 degrees.")
-    #     print("the manual 'TILT_CORRECTION_ANGLE' must be used in the main script.")
-    # else:
-    #     print(
-    #         f"\nCONCLUSION: Use {tilt_angle:.2f} (or {-tilt_angle:.2f}) as TILT_CORRECTION_ANGLE."
-    #     )
 
     main()

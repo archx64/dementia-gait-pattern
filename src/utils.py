@@ -4,44 +4,68 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-SUBJECT_NAME = "Kaung"
-
-OUTPUT_DIR = "output"
-
-FPS = 25
-
-INPUT_DIR = "res"
-
-CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
-
-CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
-WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
-
-TILT_CORRECTION_ANGLE = -15
-
-VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "cam1_20251215_120518.mp4"),
-    os.path.join(INPUT_DIR, "cam2_20251215_120518.mp4"),
-]
-
-OUTPUT_CSV = os.path.join(OUTPUT_DIR, "multiview_skeleton_3d.csv")
-GAITANALYSIS_CSV = os.path.join(OUTPUT_DIR, 'gait_analysis.csv')
-
-# MODEL_ALIAS = "rtmpose-l"
-MODEL_ALIAS = "rtmpose-l"
-
-SCORE_THRESHOLD = 0.1
-
-init(autoreset=True)
-
-# console colors
-ERROR = Fore.LIGHTRED_EX + Back.BLACK + Style.BRIGHT
+# ========== console colors start ==========
 HEAD = Fore.LIGHTGREEN_EX + Back.BLACK + Style.NORMAL
 BODY = Fore.LIGHTYELLOW_EX + Back.BLACK + Style.NORMAL
+ERROR = Fore.LIGHTRED_EX + Back.BLACK + Style.BRIGHT
 SUCCESS = Fore.LIGHTGREEN_EX + Back.BLACK + Style.BRIGHT
 INFO = Fore.LIGHTBLUE_EX + Back.BLACK + Style.BRIGHT
 DEBUG = Fore.LIGHTYELLOW_EX + Back.BLACK + Style.BRIGHT
 WARNING = Fore.BLACK + Back.YELLOW + Style.NORMAL
+init(autoreset=True)
+# console colors end
+
+
+# ========== calibration config ==========
+SQUARES_X = 5
+SQUARES_Y = 7
+
+TARGET_PAPER = "A0"
+
+CAMERA_COUNT = 4
+
+PAPER_SIZES = {
+    "A4": (210, 297),
+    "A3": (297, 420),
+    "A2": (420, 594),
+    "A1": (594, 841),
+    "A0": (841, 1189),
+}
+
+PAPER_CONFIGS = {
+    "A4": 0.036,  # 36mm
+    "A3": 0.053,  # 53mm
+    "A2": 0.078,  # 78mm
+    "A1": 0.112,  # 112mm
+    "A0": 0.162,  # 0.162mm
+}
+
+if TARGET_PAPER not in PAPER_CONFIGS:
+    print(ERROR + f"you must select paper from {PAPER_CONFIGS}")
+    exit()
+
+SQUARES_LENGTH = PAPER_CONFIGS[TARGET_PAPER]
+MARKER_LENGTH = SQUARES_LENGTH * 0.75
+IMAGES_DIR = "new_calibration_data"
+# ========== calibration config end ==========
+
+
+# ========== pose estimation start ==========
+SUBJECT_NAME = "Kaung"
+OUTPUT_DIR = "output"
+FPS = 25
+INPUT_DIR = "res"
+MODEL_ALIAS = "rtmpose-l"
+CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
+CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
+WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
+
+TILT_CORRECTION_ANGLE = -17
+
+VIDEO_PATHS = [
+    os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
+    os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
+]
 
 SKELETON = [
     (0, 1),
@@ -62,8 +86,6 @@ SKELETON = [
     (14, 16),  # right leg
 ]
 
-header = ["frame_idx", "total_distance_m"]
-
 keypoint_names = [
     "Nose",
     "L_Eye",
@@ -83,4 +105,20 @@ keypoint_names = [
     "L_Ankle",
     "R_Ankle",
 ]
+
+OUTPUT_CSV = os.path.join(OUTPUT_DIR, "multiview_skeleton_3d.csv")
+# ========== pose estimation end ==========
+
+
+# ========== gait analysis start ==========
+
+GAITANALYSIS_CSV = os.path.join(OUTPUT_DIR, "gait_analysis.csv")
+
+SCORE_THRESHOLD = 0.1
+
+
+
+
+header = ["frame_idx", "total_distance_m"]
+
 
