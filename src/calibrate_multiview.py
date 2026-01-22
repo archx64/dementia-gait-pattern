@@ -1,8 +1,6 @@
 import os, glob, cv2, json
 import numpy as np
 from utils import (
-    TARGET_PAPER,
-    CAMERA_COUNT,
     SQUARES_X,
     SQUARES_Y,
     SQUARES_LENGTH,
@@ -13,6 +11,8 @@ from utils import (
     DEBUG,
     INFO,
     WARNING,
+    CALIBRATION_FILE,
+    CAMERA_COUNT
 )
 
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
@@ -134,7 +134,7 @@ def detect_corners(cam_config):
         cv2.imshow(window_name, vis_img)
 
         # wait 100ms for each frame. Press 'ESC' to skip this camera.
-        wait_key = cv2.waitKey(250)
+        wait_key = cv2.waitKey(100)
         if wait_key == 27:  # ESC key
             print(DEBUG + f"[{name}] Skipping visualization...")
             break
@@ -322,9 +322,9 @@ def main():
         save_dict[f"{cam_name}_R"] = params["R"]
         save_dict[f"{cam_name}_T"] = params["T"]
 
-    save_path = f"synchronized_videos/multicam_calibration_{TARGET_PAPER}.npz"
-    np.savez(save_path, **save_dict)
-    print(SUCCESS + f"\nsaved all parameters to {save_path}")
+    # save_path = f"synchronized_videos/multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz"
+    np.savez(CALIBRATION_FILE, **save_dict)
+    print(SUCCESS + f"\nsaved all parameters to {CALIBRATION_FILE}")
 
 
 if __name__ == "__main__":

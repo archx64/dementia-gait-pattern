@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.signal import butter, filtfilt, find_peaks
-from utils import FPS, GAITANALYSIS_CSV, OUTPUT_CSV, WARNING, SUBJECT_NAME
+from utils import FPS_ANALYSIS, GAITANALYSIS_CSV, OUTPUT_CSV, WARNING, SUBJECT_NAME
 
 class GaitAnalyzer:
     def __init__(self, csv_path, fps=30, height_axis='z', up_direction=1):
@@ -203,7 +203,7 @@ class GaitAnalyzer:
 
 def main():
     # ensure you set the FPS correctly here
-    gait_analyzer = GaitAnalyzer(OUTPUT_CSV, fps=FPS)
+    gait_analyzer = GaitAnalyzer(OUTPUT_CSV, fps=FPS_ANALYSIS)
     
     params_df, events_df = gait_analyzer.generate_vicon_tables()
 

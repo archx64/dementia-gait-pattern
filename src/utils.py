@@ -46,7 +46,7 @@ if TARGET_PAPER not in PAPER_CONFIGS:
 
 SQUARES_LENGTH = PAPER_CONFIGS[TARGET_PAPER]
 MARKER_LENGTH = SQUARES_LENGTH * 0.75
-CAMERA_COUNT = 4
+CAMERA_COUNT = 3
 IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 # ========== calibration config end ==========
 
@@ -54,20 +54,21 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 # ========== pose estimation start ==========
 SUBJECT_NAME = "Kaung"
 OUTPUT_DIR = "output"
-FPS = 25
+FPS_ANALYSIS = 25
+FPS_ANALYSIS = 13.4
 INPUT_DIR = "synchronized_videos"
 MODEL_ALIAS = "rtmpose-l"
-CALIBRATION_FILE = os.path.join(INPUT_DIR, "multicam_calibration_A0.npz")
+CALIBRATION_FILE = os.path.join(INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz")
 CONFIG_PATH = "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco/"
 WEIGHT_PATH = "/home/aicenter/Dev/lib/mmpose_weights/"
 
-TILT_CORRECTION_ANGLE = -17
+TILT_CORRECTION_ANGLE = -23.5
 
 # old synchronized videos
-VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
-    os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
-]
+# VIDEO_PATHS = [
+#     os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
+#     os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
+# ]
 
 # uncomment this list for 2 camera
 # VIDEO_PATHS = [
@@ -76,12 +77,12 @@ VIDEO_PATHS = [
 # ]
 
 # uncomment this list for 4 camera
-# VIDEO_PATHS = [
-#     os.path.join(INPUT_DIR, "cam1_20260119_134317.avi"),
-#     os.path.join(INPUT_DIR, "cam2_20260119_134317.avi"),
-#     os.path.join(INPUT_DIR, "cam3_20260119_134317.avi"),
-#     os.path.join(INPUT_DIR, "cam4_20260119_134317.avi"),
-# ]
+VIDEO_PATHS = [
+    os.path.join(INPUT_DIR, "cam1_20260122_132701.avi"),
+    os.path.join(INPUT_DIR, "cam2_20260122_132701.avi"),
+    os.path.join(INPUT_DIR, "cam3_20260122_132701.avi"),
+    # os.path.join(INPUT_DIR, "cam4_20260122_121955.avi"),
+]
 
 SKELETON = [
     (0, 1),
