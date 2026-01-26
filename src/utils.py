@@ -137,5 +137,3 @@ SCORE_THRESHOLD = 0.1
 
 
 header = ["frame_idx", "total_distance_m"]
-
-

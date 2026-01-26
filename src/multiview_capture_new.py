@@ -10,6 +10,7 @@ CAMERA_SOURCES = [
     "rtsp://admin:csimAIT5706@192.168.6.102:554/Streaming/Channels/101/",
     "rtsp://admin:csimAIT5706@192.168.6.103:554/Streaming/Channels/101/",
 ]
+
 BASE_DIR = "new_calibration_data"
 VIDEO_DIR = "synchronized_videos"
 # FPS_ANALYSIS = 13.4  # target FPS
@@ -197,23 +198,24 @@ def main():
 
                 cv2.circle(combined, (50, 50), 10, status_color, -1)
                 cv2.putText(
-                    combined,
-                    f"{status_text} | FPS: {real_fps:.1f}",
-                    (70, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    status_color,
-                    2,
+                    img=combined,
+                    text=f"{status_text} | FPS: {real_fps:.1f}",
+                    org=(70, 60),
+                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=0.7,
+                    color=status_color,
+                    thickness=2,
                 )
 
                 cv2.putText(
-                    combined,
-                    f"Photos: {photo_count}",
-                    (30, 90),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (255, 255, 255),
-                    2,
+                    img=combined,
+                    text=f"Photos: {photo_count}",
+                    org=(30, 90),
+                    fontFace=cv2.FONT_HERSHEY_COMPLEX,
+                    # fontFace=cv2.FONT_HERSHEY_SCRIPT_COMPLEX,
+                    fontScale=0.7,
+                    color=(255, 255, 0),
+                    thickness=2,
                 )
 
                 cv2.imshow("Multi-View Capture (Optimized)", combined)

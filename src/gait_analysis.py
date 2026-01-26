@@ -85,7 +85,7 @@ class GaitAnalyzer:
         # If up_dir is 1 (Z goes up), minima is bottom.
         # If up_dir is -1 (Z goes down), maxima is bottom.
         strike_signal = -z_signal if self.up_dir == 1 else z_signal
-        strikes, _ = find_peaks(strike_signal, distance=self.fps*0.75)
+        strikes, _ = find_peaks(strike_signal, distance=self.fps*0.25)
 
         # Toe Off: Max Upward Velocity
         vel_z = np.gradient(z_signal)
@@ -94,7 +94,7 @@ class GaitAnalyzer:
         off_signal = vel_z if self.up_dir == 1 else -vel_z
         
         # Height 0.01 ensures we only catch significant kick-offs
-        offs, _ = find_peaks(off_signal, height=0.01, distance=self.fps*0.5)
+        offs, _ = find_peaks(off_signal, height=0.01, distance=self.fps*0.25)
         
         return np.sort(strikes), np.sort(offs)
 
