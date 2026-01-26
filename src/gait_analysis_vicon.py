@@ -10,220 +10,176 @@ class GaitAnalyzer:
         self.height_axis = height_axis.lower()
         self.up_dir = up_direction
         
-        # Load Data
         self.df = pd.read_csv(csv_path)
         
-        # 1. Define Raw Keypoints (COCO Format)
-        self.raw_cols = [
-            'j15_x', 'j15_y', 'j15_z', # Left Ankle
-            'j16_x', 'j16_y', 'j16_z', # Right Ankle
-            'j11_x', 'j11_y', 'j11_z', # Left Hip
-            'j12_x', 'j12_y', 'j12_z'  # Right Hip
-        ]
+        # Mapping WholeBody Keypoints
+        self.map = {
+            'L_Heel_X': 'j19_x', 'L_Heel_Y': 'j19_y', 'L_Heel_Z': 'j19_z',
+            'R_Heel_X': 'j22_x', 'R_Heel_Y': 'j22_y', 'R_Heel_Z': 'j22_z',
+            'L_Toe_X':  'j17_x', 'L_Toe_Y':  'j17_y', 'L_Toe_Z':  'j17_z',
+            'R_Toe_X':  'j20_x', 'R_Toe_Y':  'j20_y', 'R_Toe_Z':  'j20_z',
+        }
         
-        # 2. Filter Data
         self.filter_data()
 
-        # 3. Compute Hip Center
-        self.df['Hip_Center_X'] = (self.df['j11_x'] + self.df['j12_x']) / 2
-        self.df['Hip_Center_Y'] = (self.df['j11_y'] + self.df['j12_y']) / 2
-        self.df['Hip_Center_Z'] = (self.df['j11_z'] + self.df['j12_z']) / 2
-
-        # 4. Map columns
-        self.map = {
-            'L_Ankle_X': 'j15_x', 'L_Ankle_Y': 'j15_y', 'L_Ankle_Z': 'j15_z',
-            'R_Ankle_X': 'j16_x', 'R_Ankle_Y': 'j16_y', 'R_Ankle_Z': 'j16_z',
-            'Hip_Center_X': 'Hip_Center_X', 
-            'Hip_Center_Y': 'Hip_Center_Y', 
-            'Hip_Center_Z': 'Hip_Center_Z'
-        }
-
     def filter_data(self):
-        # 4th order butterworth filter, 6Hz cutoff
+        # 4th order Butterworth, 6Hz cutoff
         b, a = butter(4, 6 / (0.5 * self.fps), btype='low')
-        
-        for col in self.raw_cols:
-            if col in self.df.columns:
+        for col in self.df.columns:
+            if col.startswith('j'):
                 self.df[col] = filtfilt(b, a, self.df[col])
-            else:
-                pass # Silently skip missing columns
 
-    def detect_events(self, side='L'):
-        prefix = 'L' if side == 'L' else 'R'
-        z_col = self.map[f'{prefix}_Ankle_{self.height_axis.upper()}']
+    def detect_events(self, side):
+        prefix = side
+        heel_z = self.df[self.map[f'{prefix}_Heel_{self.height_axis.upper()}']].values
+        toe_z = self.df[self.map[f'{prefix}_Toe_{self.height_axis.upper()}']].values
 
-        # Heel Strike (Minima)
-        z_signal = self.df[z_col].values
-        strike_signal = -z_signal if self.up_dir == 1 else z_signal
-        strikes, _ = find_peaks(strike_signal, distance=self.fps*0.5)
+        # 1. Heel Strike (Minima of Heel Z)
+        strike_signal = -heel_z if self.up_dir == 1 else heel_z
+        strikes, _ = find_peaks(strike_signal, distance=self.fps*0.5, prominence=0.01)
 
-        # Toe Off (Max Upward Velocity)
-        vel_z = np.gradient(z_signal)
+        # 2. Toe Off (Max Upward Velocity of Toe Z)
+        vel_z = np.gradient(toe_z)
         off_signal = vel_z if self.up_dir == 1 else -vel_z
-        # Look for peaks in velocity (foot kicking up)
         offs, _ = find_peaks(off_signal, height=0.01, distance=self.fps*0.5)
-        
+
         return np.sort(strikes), np.sort(offs)
+
+    def calculate_full_metrics(self, strikes, offs, opp_strikes, opp_offs, side):
+        if len(strikes) < 2: return None
+
+        metrics = {k: [] for k in [
+            'Cadence', 'WalkingSpeed', 'StrideTime', 'StepTime',
+            'OppFootOff', 'OppFootContact', 'FootOff', 
+            'SingleSupport', 'DoubleSupport', 
+            'StrideLen', 'StepLen', 'StepWidth', 'LimpIndex'
+        ]}
+
+        for i in range(len(strikes) - 1):
+            start = strikes[i]
+            end = strikes[i+1]
+            stride_dur = (end - start) / self.fps
+            stride_frames = end - start
+
+            if stride_dur == 0: continue
+
+            # --- SPATIAL ---
+            lx = self.df.iloc[start][self.map['L_Heel_X']]
+            ly = self.df.iloc[start][self.map['L_Heel_Y']]
+            rx = self.df.iloc[start][self.map['R_Heel_X']]
+            ry = self.df.iloc[start][self.map['R_Heel_Y']]
+
+            # Step Length & Width
+            step_len = np.sqrt((lx - rx)**2 + (ly - ry)**2) * 100
+            step_width = abs(ly - ry) * 100
+
+            # Stride Length
+            h_x, h_y = self.map[f'{side}_Heel_X'], self.map[f'{side}_Heel_Y']
+            p1 = self.df.iloc[start][[h_x, h_y]]
+            p2 = self.df.iloc[end][[h_x, h_y]]
+            stride_len = np.linalg.norm(p2 - p1) * 100
+
+            # --- TEMPORAL ---
+            # Own Foot Off
+            valid_offs = offs[(offs > start) & (offs < end)]
+            foot_off_pct = np.nan
+            if len(valid_offs) > 0:
+                foot_off_pct = ((valid_offs[0] - start) / stride_frames) * 100
+
+            # Opp Contact
+            valid_opp_s = opp_strikes[(opp_strikes > start) & (opp_strikes < end)]
+            opp_con_pct = np.nan
+            step_time = np.nan
+            if len(valid_opp_s) > 0:
+                opp_con_pct = ((valid_opp_s[0] - start) / stride_frames) * 100
+                step_time = (valid_opp_s[0] - start) / self.fps
+
+            # Opp Off (Initial Double Support End)
+            valid_opp_o = opp_offs[(opp_offs > start) & (opp_offs < end)]
+            opp_off_pct = np.nan
+            if len(valid_opp_o) > 0:
+                opp_off_pct = ((valid_opp_o[0] - start) / stride_frames) * 100
+
+            # Derived
+            single_supp = opp_con_pct - opp_off_pct if (not np.isnan(opp_con_pct) and not np.isnan(opp_off_pct)) else np.nan
+            double_supp = np.nan
+            if not np.isnan(foot_off_pct) and not np.isnan(opp_con_pct) and not np.isnan(opp_off_pct):
+                double_supp = opp_off_pct + (foot_off_pct - opp_con_pct)
+
+            limp = np.nan
+            if not np.isnan(foot_off_pct):
+                swing = 100 - foot_off_pct
+                if swing > 0: limp = foot_off_pct / swing
+
+            # Append
+            metrics['StrideTime'].append(stride_dur)
+            metrics['StrideLen'].append(stride_len)
+            metrics['StepLen'].append(step_len)
+            metrics['StepWidth'].append(step_width)
+            # metrics['WalkingSpeed'].append((stride_len/100)/stride_dur)
+            metrics['WalkingSpeed'].append((stride_len/10)/stride_dur)
+            metrics['Cadence'].append((60/stride_dur)*2)
+            metrics['StepTime'].append(step_time)
+            metrics['FootOff'].append(foot_off_pct)
+            metrics['OppFootContact'].append(opp_con_pct)
+            metrics['OppFootOff'].append(opp_off_pct)
+            metrics['SingleSupport'].append(single_supp)
+            metrics['DoubleSupport'].append(double_supp)
+            metrics['LimpIndex'].append(limp)
+
+        # Average
+        return {k: np.nanmean(v) if len(v) > 0 else 0 for k, v in metrics.items()}
 
     def generate_vicon_tables(self):
         l_strikes, l_offs = self.detect_events('L')
         r_strikes, r_offs = self.detect_events('R')
+
+        # 1. EVENTS TABLE
+        events = []
+        for f in l_strikes: events.append({'Subject': SUBJECT_NAME, 'Context': 'Left', 'Name': 'Foot Strike', 'Frame': f, 'Time (s)': f/self.fps})
+        for f in l_offs:    events.append({'Subject': SUBJECT_NAME, 'Context': 'Left', 'Name': 'Foot Off',    'Frame': f, 'Time (s)': f/self.fps})
+        for f in r_strikes: events.append({'Subject': SUBJECT_NAME, 'Context': 'Right', 'Name': 'Foot Strike', 'Frame': f, 'Time (s)': f/self.fps})
+        for f in r_offs:    events.append({'Subject': SUBJECT_NAME, 'Context': 'Right', 'Name': 'Foot Off',    'Frame': f, 'Time (s)': f/self.fps})
         
-        # --- 1. GENERATE EVENTS TABLE ---
-        events_list = []
-        for f in l_strikes: events_list.append({'Context': 'Left', 'Name': 'Foot Strike', 'Frame': f, 'Time (s)': f/self.fps})
-        for f in l_offs:    events_list.append({'Context': 'Left', 'Name': 'Foot Off',    'Frame': f, 'Time (s)': f/self.fps})
-        for f in r_strikes: events_list.append({'Context': 'Right', 'Name': 'Foot Strike', 'Frame': f, 'Time (s)': f/self.fps})
-        for f in r_offs:    events_list.append({'Context': 'Right', 'Name': 'Foot Off',    'Frame': f, 'Time (s)': f/self.fps})
-        
-        events_df = pd.DataFrame(events_list).sort_values(by='Frame').reset_index(drop=True)
-        events_df['Subject'] = SUBJECT_NAME
+        events_df = pd.DataFrame(events).sort_values(by='Frame').reset_index(drop=True)
         events_df['Description'] = events_df['Name'].map({
-            'Foot Strike': 'The instant the heel strikes the ground',
-            'Foot Off': 'The instant the toe leaves the ground'
+            'Foot Strike': 'Heel touches ground',
+            'Foot Off': 'Toe leaves ground'
         })
-        events_df = events_df[['Subject', 'Context', 'Name', 'Time (s)', 'Description']]
 
-        # --- 2. GENERATE PARAMETERS TABLE ---
-        params_list = []
+        # 2. PARAMETERS TABLE
+        l_res = self.calculate_full_metrics(l_strikes, l_offs, r_strikes, r_offs, 'L')
+        r_res = self.calculate_full_metrics(r_strikes, r_offs, l_strikes, l_offs, 'R')
         
-        def calc_side_metrics(strikes, offs, opp_strikes, opp_offs, side):
-            if len(strikes) < 2: return None
-            
-            data = {k: [] for k in ['StepLen', 'StrideLen', 'StepTime', 'StrideTime', 
-                                    'StepWidth', 'OppFootOff', 'OppFootContact', 
-                                    'FootOff', 'SingleSupport', 'DoubleSupport']}
-            
-            for i in range(len(strikes) - 1):
-                start = strikes[i]
-                end = strikes[i+1]
-                stride_frames = end - start
-                
-                # Basic Time Metrics
-                data['StrideTime'].append(stride_frames / self.fps)
-                
-                # --- SPATIAL METRICS (at Start frame) ---
-                # Coordinates
-                lx = self.df.iloc[start][self.map['L_Ankle_X']]
-                ly = self.df.iloc[start][self.map['L_Ankle_Y']]
-                rx = self.df.iloc[start][self.map['R_Ankle_X']]
-                ry = self.df.iloc[start][self.map['R_Ankle_Y']]
-                
-                # Step Length (Distance between ankles)
-                dist_cm = np.sqrt((lx-rx)**2 + (ly-ry)**2) * 100
-                data['StepLen'].append(dist_cm)
-                
-                # Step Width (Abs diff in Y - assuming walking along X)
-                width_cm = abs(ly - ry) * 100
-                data['StepWidth'].append(width_cm)
+        rows = []
+        param_defs = [
+            ('Cadence', 'Cadence', 'steps/min'),
+            ('WalkingSpeed', 'Walking Speed', 'm/s'),
+            ('StrideTime', 'Stride Time', 's'),
+            ('StepTime', 'Step Time', 's'),
+            ('OppFootOff', 'Opposite Foot Off', '%'),
+            ('OppFootContact', 'Opposite Foot Contact', '%'),
+            ('FootOff', 'Foot Off', '%'),
+            ('SingleSupport', 'Single Support', '%'),
+            ('DoubleSupport', 'Double Support', '%'),
+            ('StrideLen', 'Stride Length', 'cm'),
+            ('StepLen', 'Step Length', 'cm'),
+            ('StepWidth', 'Step Width', 'cm'),
+            ('LimpIndex', 'Limp Index', 'nan'),
+        ]
 
-                # Stride Length (Approx 2 * Step for now, or displacement)
-                # Calculating displacement of the SAME foot
-                foot_col_x = self.map[f'{side[0]}_Ankle_X']
-                start_x = self.df.iloc[start][foot_col_x]
-                end_x = self.df.iloc[end][foot_col_x]
-                stride_cm = abs(end_x - start_x) * 100
-                if stride_cm < 10: stride_cm = dist_cm * 2 # Fallback for treadmill
-                data['StrideLen'].append(stride_cm)
-
-                # --- TEMPORAL EVENTS (Percentages) ---
-                # 1. Own Foot Off (Stance Phase end)
-                # Find the 'Foot Off' that happens strictly INSIDE this stride
-                valid_offs = offs[(offs > start) & (offs < end)]
-                if len(valid_offs) > 0:
-                    own_off = valid_offs[0]
-                    pct_off = (own_off - start) / stride_frames * 100
-                    data['FootOff'].append(pct_off)
-                else:
-                    data['FootOff'].append(np.nan)
-
-                # 2. Opposite Foot Events
-                # Opp Strike (Step Time)
-                valid_opp_strikes = opp_strikes[(opp_strikes > start) & (opp_strikes < end)]
-                if len(valid_opp_strikes) > 0:
-                    opp_strike = valid_opp_strikes[0]
-                    
-                    # Step Time
-                    step_time = (opp_strike - start) / self.fps
-                    data['StepTime'].append(step_time)
-                    
-                    # Opp Contact %
-                    pct_opp_contact = (opp_strike - start) / stride_frames * 100
-                    data['OppFootContact'].append(pct_opp_contact)
-                    
-                    # Opp Off % (Must happen before Opp Contact usually, or right after start)
-                    # We look for Opp Off between Start and Opp Strike
-                    valid_opp_offs = opp_offs[(opp_offs > start) & (opp_offs < opp_strike)]
-                    if len(valid_opp_offs) > 0:
-                        opp_off = valid_opp_offs[0]
-                        pct_opp_off = (opp_off - start) / stride_frames * 100
-                        data['OppFootOff'].append(pct_opp_off)
-                        
-                        # Derived Support Phases
-                        single_supp = pct_opp_contact - pct_opp_off
-                        data['SingleSupport'].append(single_supp)
-                        data['DoubleSupport'].append(100 - single_supp)
-                    else:
-                        data['OppFootOff'].append(np.nan)
-                        data['SingleSupport'].append(np.nan)
-                        data['DoubleSupport'].append(np.nan)
-                else:
-                    data['StepTime'].append(np.nan)
-                    data['OppFootContact'].append(np.nan)
-            
-            # --- AGGREGATE ---
-            # Remove NaNs before averaging
-            results = {}
-            for k, v in data.items():
-                clean_v = [x for x in v if not np.isnan(x)]
-                results[k] = np.mean(clean_v) if clean_v else 0
-
-            # Derived Globals
-            results['Cadence'] = 60 / results['StepTime'] if results['StepTime'] > 0 else 0
-            results['WalkingSpeed'] = (results['StrideLen'] / 100) / results['StrideTime'] if results['StrideTime'] > 0 else 0
-            
-            # Limp Index (Simple Stance Time symmetry approximation)
-            # Limp = Stance / Swing
-            # Stance % = FootOff %
-            if results['FootOff'] > 0:
-                results['LimpIndex'] = results['FootOff'] / (100 - results['FootOff'])
-            else:
-                results['LimpIndex'] = 0
-
-            return results
-
-        # Calculate Both Sides
-        # Notice we pass ALL events to both functions
-        l_res = calc_side_metrics(l_strikes, l_offs, r_strikes, r_offs, 'Left')
-        r_res = calc_side_metrics(r_strikes, r_offs, l_strikes, l_offs, 'Right')
-        
-        def add_rows(res, context):
+        def add_rows(res, ctx):
             if not res: return
-            # Mapping Key -> Display Name
-            rows = [
-                ('Cadence', 'Cadence', 'steps/min'),
-                ('WalkingSpeed', 'Walking Speed', 'm/s'),
-                ('StrideTime', 'Stride Time', 's'),
-                ('StepTime', 'Step Time', 's'),
-                ('OppFootOff', 'Opposite Foot Off', '%'),
-                ('OppFootContact', 'Opposite Foot Contact', '%'),
-                ('FootOff', 'Foot Off', '%'),
-                ('SingleSupport', 'Single Support', '%'),
-                ('DoubleSupport', 'Double Support', '%'),
-                ('StrideLen', 'Stride Length', 'cm'),
-                ('StepLen', 'Step Length', 'cm'),
-                ('StepWidth', 'Step Width', 'cm'),
-                ('LimpIndex', 'Limp Index', 'nan'),
-            ]
-            
-            for key, name, unit in rows:
-                val = res.get(key, 0)
-                params_list.append([SUBJECT_NAME, context, name, val, unit])
+            for k, name, unit in param_defs:
+                rows.append({
+                    'Subject': SUBJECT_NAME, 'Context': ctx, 
+                    'Name': name, 'Value': res.get(k, 0), 'Units': unit
+                })
 
         add_rows(l_res, 'Left')
         add_rows(r_res, 'Right')
         
-        params_df = pd.DataFrame(params_list, columns=['Subject', 'Context', 'Name', 'Value', 'Units'])
+        params_df = pd.DataFrame(rows)
         return params_df, events_df
 
 def main():
@@ -231,10 +187,14 @@ def main():
     params_df, events_df = analyzer.generate_vicon_tables()
     
     print("\n# Gait Cycle Parameters")
-    print(params_df.to_markdown())
+    print(params_df.to_markdown(index=True))
     
-    print("\n\n# Events")
-    print(events_df.to_markdown())
+    print("\n# Events Table")
+    print(events_df.to_markdown(index=True))
+    
+    # Save files
+    params_df.to_csv("gait_parameters.csv", index=False)
+    events_df.to_csv("gait_events.csv", index=False)
 
 if __name__ == '__main__':
     main()

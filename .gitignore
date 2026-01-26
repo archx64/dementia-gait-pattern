@@ -8,3 +8,5 @@ output/
 synchronized_videos/
 calibration_2_cam/
 calibration_4_cam/
+calibration_3_cam/
+blender_output/
