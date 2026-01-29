@@ -16,7 +16,7 @@ init(autoreset=True)
 
 
 # ========== calibration config ==========
-CAMERA_COUNT = 3
+CAMERA_COUNT = 4
 
 SQUARES_X = 5
 SQUARES_Y = 7
@@ -51,7 +51,7 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 
 # ========== pose estimation ==========
 SUBJECT_NAME = "Kaung"
-FPS_ANALYSIS = 13.4
+FPS_ANALYSIS = 13.5
 
 INPUT_DIR = "synchronized_videos"
 OUTPUT_DIR = "output"
@@ -66,8 +66,7 @@ CONFIG_PATH = os.path.join(
 )
 WEIGHT_PATH = os.path.join(LIB_DIR, "mmpose_weights")
 
-TILT_CORRECTION_ANGLE = -23.5
-
+TILT_CORRECTION_ANGLE = -12
 # old synchronized videos
 # VIDEO_PATHS = [
 #     os.path.join(INPUT_DIR, "old_cam1_20251215_120518.mp4"),
@@ -76,10 +75,10 @@ TILT_CORRECTION_ANGLE = -23.5
 
 # uncomment this list for 4 camera
 VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "cam1_20260122_132701.avi"),
-    os.path.join(INPUT_DIR, "cam2_20260122_132701.avi"),
-    os.path.join(INPUT_DIR, "cam3_20260122_132701.avi"),
-    # os.path.join(INPUT_DIR, "cam4_20260122_121955.avi"),
+    os.path.join(INPUT_DIR, "Kaung_cam1_20260129_141714.avi"),
+    os.path.join(INPUT_DIR, "Kaung_cam2_20260129_141714.avi"),
+    os.path.join(INPUT_DIR, "Kaung_cam3_20260129_141714.avi"),
+    os.path.join(INPUT_DIR, "Kaung_cam4_20260129_141714.avi"),
 ]
 
 SKELETON = [
@@ -386,7 +385,7 @@ keypoint_names = [
 ]
 
 
-OUTPUT_CSV = os.path.join(OUTPUT_DIR, "multiview_skeleton_3d.csv")
+OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_multiview_skeleton_3d.csv")
 # ========== pose estimation end ==========
 
 

@@ -227,6 +227,7 @@ def main():
             ref_person_kpts, candidates, triangulator, 0, i
         )
         person_indices[i] = match_idx
+        # cam_idx = i+1
         print(f"cam {i}: auto-matched to person {match_idx}")
 
     prev_centroids = {}

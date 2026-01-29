@@ -1,12 +1,12 @@
 import os, time, datetime, threading
 import cv2
 import numpy as np  # added for grid placeholder logic
-from utils import INFO, WARNING, ERROR, FPS_ANALYSIS
+from utils import INFO, WARNING, ERROR, FPS_ANALYSIS, SUBJECT_NAME
 
 # configuration
 CAMERA_SOURCES = [
-    "rtsp://admin:csimAIT5706@192.168.6.101:554/Streaming/Channels/101/",
     "rtsp://admin:csimAIT5706@192.168.6.100:554/Streaming/Channels/101/",
+    "rtsp://admin:csimAIT5706@192.168.6.101:554/Streaming/Channels/101/",
     "rtsp://admin:csimAIT5706@192.168.6.102:554/Streaming/Channels/101/",
     "rtsp://admin:csimAIT5706@192.168.6.103:554/Streaming/Channels/101/",
 ]
@@ -90,7 +90,7 @@ def get_video_writers(num_cams, width, height, fps):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     print(INFO + f"starting recording session: {timestamp}")
     for i in range(1, num_cams + 1):
-        filename = os.path.join(VIDEO_DIR, f"cam{i}_{timestamp}.avi")
+        filename = os.path.join(VIDEO_DIR, f"{SUBJECT_NAME}_cam{i}_{timestamp}.avi")
         fourcc = cv2.VideoWriter_fourcc(*"MJPG")
         writers.append(cv2.VideoWriter(filename, fourcc, fps, (width, height)))
     return writers

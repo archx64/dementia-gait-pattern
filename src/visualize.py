@@ -4,7 +4,7 @@ import numpy as np
 from utils import ERROR, CALIBRATION_FILE
 
 
-def plot_camera(ax, R, T, color, label, scale=0.5):
+def plot_camera(ax, R, T, color, label, scale=0.25):
     R_inv = R.T
 
     pos = -R_inv @ T
