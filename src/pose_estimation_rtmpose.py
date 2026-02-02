@@ -2,6 +2,7 @@ import cv2, os, csv, torch, functools
 import numpy as np
 from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
+
 # from scipy.spatial.transform import Rotation as R_scipy
 
 from utils import (
@@ -131,9 +132,78 @@ class MultiviewTriangulator:
             P = K @ RT
             self.cameras[i] = {"K": K, "D": D, "R": R, "T": T, "P": P, "name": prefix}
 
+    # def triangulate_one_point(self, views):
+    #     if len(views) < 2:
+    #         return np.array([np.nan, np.nan, np.nan])
+    #     A = []
+    #     for cam_idx, (u, v) in views:
+    #         P = self.cameras[cam_idx]["P"]
+    #         row1 = u * P[2] - P[0]
+    #         row2 = v * P[2] - P[1]
+    #         A.append(row1)
+    #         A.append(row2)
+    #     u_svd, s_svd, vh = np.linalg.svd(np.array(A))
+    #     X = vh[-1]
+    #     X = X / X[3]
+    #     return X[:3]
+
     def triangulate_one_point(self, views):
+        """
+        Robust Triangulation using RANSAC-style outlier rejection.
+        Instead of using all N views at once, we verify pairs.
+        """
         if len(views) < 2:
             return np.array([np.nan, np.nan, np.nan])
+
+        # 1. If only 2 views, we have no choice but to trust them
+        if len(views) == 2:
+            return self._run_svd(views)
+
+        # 2. If >2 views, checking for outliers
+        candidates = []
+
+        # Generate all unique pairs (e.g., 4 cams -> 6 pairs)
+        import itertools
+
+        pairs = list(itertools.combinations(views, 2))
+
+        for pair in pairs:
+            # Triangulate this specific pair
+            pt_3d = self._run_svd(pair)
+            candidates.append(pt_3d)
+
+        candidates = np.array(candidates)
+
+        # 3. Find the "Cluster" of points that are close to each other
+        # Calculate distances between all candidate points
+        valid_cluster = []
+        threshold_dist = 0.15  # 15cm tolerance (adjust based on your scale)
+
+        # Simple logic: Count how many neighbors each point has
+        for i, p1 in enumerate(candidates):
+            neighbors = 0
+            for j, p2 in enumerate(candidates):
+                if i == j:
+                    continue
+                dist = np.linalg.norm(p1 - p2)
+                if dist < threshold_dist:
+                    neighbors += 1
+
+            # If this point agrees with at least 1 other pair, keep it
+            if neighbors > 0:
+                valid_cluster.append(p1)
+
+        if not valid_cluster:
+            # Fallback: All pairs disagree (chaos).
+            # Trust the pairs with highest confidence scores if available,
+            # or just return the median of everything.
+            return np.median(candidates, axis=0)
+
+        # 4. Return the mean of the "Good" cluster
+        return np.mean(valid_cluster, axis=0)
+
+    def _run_svd(self, views):
+        """The standard Linear Triangulation (DLT) for a specific set of views"""
         A = []
         for cam_idx, (u, v) in views:
             P = self.cameras[cam_idx]["P"]
@@ -141,10 +211,10 @@ class MultiviewTriangulator:
             row2 = v * P[2] - P[1]
             A.append(row1)
             A.append(row2)
+
         u_svd, s_svd, vh = np.linalg.svd(np.array(A))
         X = vh[-1]
-        X = X / X[3]
-        return X[:3]
+        return (X / X[3])[:3]
 
 
 def main():
@@ -160,14 +230,16 @@ def main():
     # ensure you have the 'wholebody' python config file and .pth weights downloaded
     inferencer = MMPoseInferencer(
         pose2d=os.path.join(
-            CONFIG_PATH, 
+            CONFIG_PATH,
             # "rtmpose-l_8xb64-270e_coco-wholebody-256x192.py",
-            "rtmpose-l_8xb32-270e_coco-wholebody-384x288.py"
+            "rtmpose-l_8xb32-270e_coco-wholebody-384x288.py",
+            # 'rtmpose-l_8xb256-420e_aic-coco-256x192.py'
         ),
         pose2d_weights=os.path.join(
             WEIGHT_PATH,
+            # 'rtmpose-l_simcc-aic-coco_pt-aic-coco_420e-256x192-f016ffe0_20230126.pth'
             # "rtmpose-l_simcc-coco-wholebody_pt-aic-coco_270e-256x192-6f206314_20230124.pth",
-            "rtmpose-l_simcc-coco-wholebody_pt-aic-coco_270e-384x288-eaeb96c8_20230125.pth"
+            "rtmpose-l_simcc-coco-wholebody_pt-aic-coco_270e-384x288-eaeb96c8_20230125.pth",
         ),
         device=device,
     )

@@ -1,6 +1,6 @@
-import os
+import os, cv2, warnings, math, itertools
+import numpy as np
 from colorama import Back, Fore, Style, init
-import warnings
 
 warnings.filterwarnings("ignore")
 
@@ -51,7 +51,8 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 
 # ========== pose estimation ==========
 SUBJECT_NAME = "Kaung"
-FPS_ANALYSIS = 13.5
+FPS_ANALYSIS = 13.4
+ROBUST_TRIANGULATION = True
 
 INPUT_DIR = "synchronized_videos"
 OUTPUT_DIR = "output"
@@ -62,7 +63,8 @@ CALIBRATION_FILE = os.path.join(
 MODEL_ALIAS = "rtmpose-l-wholebody"
 LIB_DIR = "/home/aicenter/Dev/lib"
 CONFIG_PATH = os.path.join(
-    LIB_DIR, "mmpose/configs/wholebody_2d_keypoint/rtmpose/coco-wholebody"
+    LIB_DIR, "mmpose/configs/wholebody_2d_keypoint/rtmpose/cocktail14"
+    # LIB_DIR, "/home/aicenter/Dev/lib/mmpose/configs/body_2d_keypoint/rtmpose/coco"
 )
 WEIGHT_PATH = os.path.join(LIB_DIR, "mmpose_weights")
 
@@ -73,13 +75,22 @@ TILT_CORRECTION_ANGLE = -12
 #     os.path.join(INPUT_DIR, "old_cam2_20251215_120518.mp4"),
 # ]
 
-# uncomment this list for 4 camera
+# uncomment this for 4 cameras
+
 VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "Kaung_cam1_20260129_141714.avi"),
-    os.path.join(INPUT_DIR, "Kaung_cam2_20260129_141714.avi"),
-    os.path.join(INPUT_DIR, "Kaung_cam3_20260129_141714.avi"),
-    os.path.join(INPUT_DIR, "Kaung_cam4_20260129_141714.avi"),
+    os.path.join(INPUT_DIR, "Jednipat_cam1_20260130_140722.avi"),
+    os.path.join(INPUT_DIR, "Jednipat_cam2_20260130_140722.avi"),
+    os.path.join(INPUT_DIR, "Jednipat_cam3_20260130_140722.avi"),
+    os.path.join(INPUT_DIR, "Jednipat_cam4_20260130_140722.avi"),
 ]
+
+# uncomment this list for 4 camera
+# VIDEO_PATHS = [
+#     os.path.join(INPUT_DIR, "Kaung_cam1_20260130_134312.avi"),
+#     os.path.join(INPUT_DIR, "Kaung_cam2_20260130_134312.avi"),
+#     os.path.join(INPUT_DIR, "Kaung_cam3_20260130_134312.avi"),
+#     os.path.join(INPUT_DIR, "Kaung_cam4_20260130_134312.avi"),
+# ]
 
 SKELETON = [
     # --- Body (Standard COCO) ---
@@ -397,3 +408,180 @@ SCORE_THRESHOLD = 0.1
 
 
 header = ["frame_idx", "total_distance_m"]
+
+# ========== gait analysis end ==========
+
+class PersonSelector:
+    def __init__(self):
+        self.selected_point = None
+
+    def mouse_callback(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN: self.selected_point = (x, y)
+
+    def select_person(self, image, results):
+        img_copy = image.copy()
+        bboxes = []
+        for i, p in enumerate(results):
+            bbox = p["bbox"][0]
+            x1, y1, x2, y2 = map(int, bbox[:4])
+            bboxes.append((x1, y1, x2, y2))
+            cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(img_copy, f"P{i}", (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+        cv2.namedWindow("Select Person")
+        cv2.setMouseCallback("Select Person", self.mouse_callback)
+        print(INFO + ">>> Click Person -> Spacebar")
+        
+        while True:
+            temp = img_copy.copy()
+            if self.selected_point: cv2.circle(temp, self.selected_point, 5, (0,0,255), -1)
+            cv2.imshow("Select Person", temp)
+            if cv2.waitKey(20) & 0xFF == 32 and self.selected_point: break
+        cv2.destroyWindow("Select Person")
+
+        cx, cy = self.selected_point
+        for i, (x1,y1,x2,y2) in enumerate(bboxes):
+            if x1<=cx<=x2 and y1<=cy<=y2: return i
+        return 0
+
+    def match_person(self, ref_kpts, candidates, triangulator, ref_cam, tgt_cam):
+        if not candidates: return 0
+        best_idx, max_pts = 0, -1
+        test_joints = [0, 5, 6, 11, 12] # Torso only
+        
+        for idx, cand in enumerate(candidates):
+            valid = 0
+            for j in test_joints:
+                u1, v1 = ref_kpts[j]
+                u2, v2 = cand["keypoints"][j]
+                pt = triangulator.triangulate_one_point([(ref_cam, (u1,v1)), (tgt_cam, (u2,v2))])
+                if not np.isnan(pt[0]): valid += 1
+            if valid > max_pts:
+                max_pts = valid
+                best_idx = idx
+        return best_idx
+    
+
+class OneEuroFilter:
+    def __init__(self, min_cutoff=1.0, beta=0.0, d_cutoff=1.0, fps=25):
+        self.min_cutoff = min_cutoff
+        self.beta = beta
+        self.d_cutoff = d_cutoff
+        self.alpha = self._alpha(self.min_cutoff, fps)
+        self.dx_prev = None
+        self.x_prev = None
+        self.fps = fps
+
+    def _alpha(self, cutoff, fps):
+        tau = 1.0 / (2 * math.pi * cutoff)
+        te = 1.0 / fps
+        return 1.0 / (1.0 + tau / te)
+
+    def process(self, x):
+        if self.x_prev is None:
+            self.dx_prev = 0
+            self.x_prev = x
+            return x
+        
+        dx = x - self.x_prev
+        edx = self._alpha(self.d_cutoff, self.fps) * dx + (1 - self._alpha(self.d_cutoff, self.fps)) * self.dx_prev
+        self.dx_prev = edx
+        
+        cutoff = self.min_cutoff + self.beta * abs(edx)
+        alpha = self._alpha(cutoff, self.fps)
+        x_hat = alpha * x + (1 - alpha) * self.x_prev
+        self.x_prev = x_hat
+        return x_hat
+
+class SkeletonSmoother:
+    def __init__(self, num_joints, fps=25):
+        self.filters = []
+        for _ in range(num_joints):
+            # Tuned parameters for Gait Analysis:
+            # min_cutoff=0.5 (Smooths jitter when standing still)
+            # beta=0.01 (Reacts fast when foot moves)
+            f_x = OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=fps)
+            f_y = OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=fps)
+            f_z = OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=fps)
+            self.filters.append((f_x, f_y, f_z))
+
+    def update(self, pts_3d):
+        smoothed_pts = np.zeros_like(pts_3d)
+        for i in range(len(pts_3d)):
+            x, y, z = pts_3d[i]
+            if np.isnan(x):
+                # Reset filter if tracking is lost
+                self.filters[i] = (
+                    OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=self.filters[i][0].fps),
+                    OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=self.filters[i][0].fps),
+                    OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=self.filters[i][0].fps)
+                )
+                smoothed_pts[i] = [np.nan, np.nan, np.nan]
+                continue
+                
+            sx = self.filters[i][0].process(x)
+            sy = self.filters[i][1].process(y)
+            sz = self.filters[i][2].process(z)
+            smoothed_pts[i] = [sx, sy, sz]
+        return smoothed_pts
+
+# ==========================================
+#      TRIANGULATION & TRACKING
+# ==========================================
+class MultiviewTriangulator:
+    def __init__(self, npz_path, cam_names):
+        self.cameras = {}
+        self.data = np.load(npz_path)
+        
+        all_keys = list(self.data.keys())
+        sorted_prefixes = sorted(list(set([k.split("_")[0] for k in all_keys])))
+
+        for i, prefix in enumerate(sorted_prefixes):
+            if i >= len(cam_names): break
+            K = self.data[f"{prefix}_K"]
+            R = self.data[f"{prefix}_R"]
+            T = self.data[f"{prefix}_T"]
+            RT = np.hstack((R, T))
+            P = K @ RT
+            self.cameras[i] = {"P": P}
+
+    def triangulate_one_point(self, views):
+        """Robust Triangulation (Vote & Verify)"""
+        if len(views) < 2: return np.array([np.nan, np.nan, np.nan])
+
+        # If only 2 views, standard DLT
+        if len(views) == 2 or not ROBUST_TRIANGULATION:
+            return self._run_svd(views)
+
+        # RANSAC-style: Triangulate all pairs
+        candidates = []
+        pairs = list(itertools.combinations(views, 2))
+        
+        for pair in pairs:
+            pt = self._run_svd(pair)
+            candidates.append(pt)
+            
+        # Cluster: Find points that agree (within 15cm)
+        valid_cluster = []
+        for i, p1 in enumerate(candidates):
+            neighbors = 0
+            for j, p2 in enumerate(candidates):
+                if i == j: continue
+                if np.linalg.norm(p1 - p2) < 0.15: # 15cm threshold
+                    neighbors += 1
+            if neighbors > 0: valid_cluster.append(p1)
+            
+        if not valid_cluster: return np.median(candidates, axis=0) # Fallback
+        return np.mean(valid_cluster, axis=0)
+
+    def _run_svd(self, views):
+        A = []
+        for cam_idx, (u, v) in views:
+            P = self.cameras[cam_idx]["P"]
+            row1 = u * P[2] - P[0]
+            row2 = v * P[2] - P[1]
+            A.append(row1)
+            A.append(row2)
+        u, s, vh = np.linalg.svd(np.array(A))
+        X = vh[-1]
+        return (X / X[3])[:3]
