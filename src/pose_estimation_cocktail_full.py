@@ -3,8 +3,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
 
-# from scipy.spatial.transform import Rotation as R_scipy
-
 # === CONFIGURATION ===
 from utils import (
     INFO,
@@ -16,24 +14,21 @@ from utils import (
     CALIBRATION_FILE,
     TILT_CORRECTION_ANGLE,
     FPS_ANALYSIS,
+    SKELETON_SMOOTHING,
     SkeletonSmoother,
     PersonSelector,
     MultiviewTriangulator,
 )
 
-# HRNet-w48 Dark (WholeBody) - High Accuracy
+# RTMW-x (WholeBody)
 MODEL_CONFIG = "rtmw-x_8xb320-270e_cocktail14-384x288.py"
 MODEL_CHECKPOINT = "rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth"
 
-# Pipeline Settings
-# ACTUAL_FPS = 13.4  # Critical for OneEuroFilter calculation
-CONFIDENCE_THR = 0.6  # Minimum confidence to trust a 2D point
-# ROBUST_TRIANGULATION = True  # Enable RANSAC-style pair voting
-
+CONFIDENCE_THR = 0.4  
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(INFO + f"Initializing rtmpose w on {device}...")
+    print(INFO + f"Initializing RTMW-x on {device}...")
 
     torch.load = functools.partial(torch.load, weights_only=False)
     inferencer = MMPoseInferencer(
@@ -48,20 +43,20 @@ def main():
         return
 
     triangulator = MultiviewTriangulator(CALIBRATION_FILE, VIDEO_PATHS)
-    smoother = SkeletonSmoother(
-        num_joints=23, fps=FPS_ANALYSIS
-    )  # 23 joints (Body + Feet)
+    
+    # FIX 1: Initialize Smoother with 133 joints
+    smoother = SkeletonSmoother(num_joints=133, fps=FPS_ANALYSIS)
 
-    # output CSV Setup
+    # FIX 2: Output CSV Header for 133 joints
     os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
     f_csv = open(OUTPUT_CSV, "w", newline="")
     writer = csv.writer(f_csv)
     header = ["frame_idx"]
-    for i in range(23):
+    for i in range(133):  # <--- CHANGED from 23 to 133
         header.extend([f"j{i}_x", f"j{i}_y", f"j{i}_z"])
     writer.writerow(header)
 
-    # initialization
+    # Initialization
     frames_0 = []
     for c in caps:
         ret, f = c.read()
@@ -77,9 +72,8 @@ def main():
     selector = PersonSelector()
     target_idx = selector.select_person(frames_0[0], res_0[0])
 
-    # store initial tracking data
-    # W]we slice to 23 points to match our skeleton definition
-    ref_kpts = res_0[0][target_idx]["keypoints"][:23]
+    # FIX 3: Store ALL 133 keypoints for matching
+    ref_kpts = res_0[0][target_idx]["keypoints"] # No slicing [:23]
 
     indices = {0: target_idx}
     prev_centroids = {}
@@ -120,7 +114,8 @@ def main():
             all_preds.append(r["predictions"][0])
 
         current_indices = {}
-        pts_3d_frame = np.zeros((23, 3))  # 23 Keypoints
+        # FIX 4: Array size 133
+        pts_3d_frame = np.zeros((133, 3))
 
         # 2. TRACKING (Centroid Distance)
         for i, preds in enumerate(all_preds):
@@ -143,7 +138,8 @@ def main():
                 prev_centroids[i] = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
 
         # 3. ROBUST TRIANGULATION
-        for j in range(23):
+        # FIX 5: Loop through ALL 133 joints (Critical Fix)
+        for j in range(133):  # <--- CHANGED from 23 to 133
             views = []
             for cam_idx in range(len(caps)):
                 if cam_idx not in current_indices:
@@ -157,16 +153,15 @@ def main():
                     u, v = pred["keypoints"][j]
                     views.append((cam_idx, (u, v)))
 
-            # Vote & Verify Triangulation
             pts_3d_frame[j] = triangulator.triangulate_one_point(views)
 
-        # 4. TILT CORRECTION
+        # 4. TILT CORRECTION & SMOOTHING
         pts_3d_frame = pts_3d_frame @ R_fix.T
+        
+        if SKELETON_SMOOTHING:
+            pts_3d_frame = smoother.update(pts_3d_frame)
 
-        # 5. ONE EURO SMOOTHING (Crucial step)
-        pts_3d_frame = smoother.update(pts_3d_frame)
-
-        # 6. SAVE & VISUALIZE
+        # 5. SAVE & VISUALIZE
         row = [frame_idx]
         for p in pts_3d_frame:
             if np.isnan(p[0]):
@@ -179,15 +174,14 @@ def main():
             ax.cla()
             valid = pts_3d_frame[~np.isnan(pts_3d_frame[:, 0])]
             if len(valid) > 0:
-                ax.scatter(
-                    valid[:, 0], valid[:, 2], -valid[:, 1], c="red"
-                )  # swapped Y/Z for plotting
+                # Plotting all 133 points might be heavy, but useful for debugging
+                ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2) 
                 ax.set_xlim(-2, 2)
                 ax.set_ylim(-2, 2)
                 ax.set_zlim(0, 3)
-                ax.set_title(f"Robust Tracking: Frame {frame_idx}")
+                ax.set_title(f"WholeBody Tracking (133 pts): Frame {frame_idx}")
             plt.pause(0.001)
-            cv2.imshow("Main View", cv2.resize(frames[0], (640, 360)))
+            cv2.imshow("Main View", cv2.resize(frames[0], (1280, 720)))
             if cv2.waitKey(1) == 27:
                 break
 
@@ -196,7 +190,6 @@ def main():
     f_csv.close()
     cv2.destroyAllWindows()
     print(INFO + f"Processing Complete. Data saved to {OUTPUT_CSV}")
-
 
 if __name__ == "__main__":
     main()

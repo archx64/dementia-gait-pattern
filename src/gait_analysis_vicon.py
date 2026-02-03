@@ -106,7 +106,8 @@ class GaitAnalyzer:
             # print(f'R_Heel_Y: {ry}')
 
             # Step Length & Width
-            step_len = np.sqrt((lx - rx) ** 2 + (lz - rz) ** 2) * 100
+            # step_len = np.sqrt((lx - rx) ** 2 + (lz - rz) ** 2) * 100
+            step_len = abs(lz-rz) * 100
             # step_width = abs(ly - ry) * 100
             step_width = abs(lx - rx) * 100
 
@@ -168,8 +169,8 @@ class GaitAnalyzer:
             metrics["StrideLen"].append(stride_len)
             metrics["StepLen"].append(step_len)
             metrics["StepWidth"].append(step_width)
-            # metrics['WalkingSpeed'].append((stride_len/100)/stride_dur)
-            metrics["WalkingSpeed"].append((stride_len / 10) / stride_dur)
+            metrics['WalkingSpeed'].append((stride_len/100)/stride_dur)
+            # metrics["WalkingSpeed"].append((stride_len / 10) / stride_dur)
             metrics["Cadence"].append((60 / stride_dur) * 2)
             metrics["StepTime"].append(step_time)
             metrics["FootOff"].append(foot_off_pct)
@@ -283,12 +284,12 @@ def main():
     print("\n# Gait Cycle Parameters")
     print(params_df.to_markdown(index=True))
 
-    print("\n# Events Table")
-    print(events_df.to_markdown(index=True))
+    # print("\n# Events Table")
+    # print(events_df.to_markdown(index=True))
 
     # Save files
     params_df.to_csv("gait_parameters.csv", index=False)
-    events_df.to_csv("gait_events.csv", index=False)
+    # events_df.to_csv("gait_events.csv", index=False)
 
 
 if __name__ == "__main__":

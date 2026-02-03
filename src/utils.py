@@ -51,8 +51,10 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 
 # ========== pose estimation ==========
 SUBJECT_NAME = "Kaung"
-FPS_ANALYSIS = 13.4
+FPS_ANALYSIS = 25
 ROBUST_TRIANGULATION = True
+
+SKELETON_SMOOTHING = False
 
 INPUT_DIR = "synchronized_videos"
 OUTPUT_DIR = "output"
@@ -77,11 +79,18 @@ TILT_CORRECTION_ANGLE = -12
 
 # uncomment this for 4 cameras
 
+# VIDEO_PATHS = [
+#     os.path.join(INPUT_DIR, "Jednipat_cam1_20260130_140722.avi"),
+#     os.path.join(INPUT_DIR, "Jednipat_cam2_20260130_140722.avi"),
+#     os.path.join(INPUT_DIR, "Jednipat_cam3_20260130_140722.avi"),
+#     os.path.join(INPUT_DIR, "Jednipat_cam4_20260130_140722.avi"),
+# ]
+
 VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "Jednipat_cam1_20260130_140722.avi"),
-    os.path.join(INPUT_DIR, "Jednipat_cam2_20260130_140722.avi"),
-    os.path.join(INPUT_DIR, "Jednipat_cam3_20260130_140722.avi"),
-    os.path.join(INPUT_DIR, "Jednipat_cam4_20260130_140722.avi"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab1.mp4"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab2.mp4"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab3.mp4"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab4.mp4"),
 ]
 
 # uncomment this list for 4 camera
@@ -500,9 +509,9 @@ class SkeletonSmoother:
             # Tuned parameters for Gait Analysis:
             # min_cutoff=0.5 (Smooths jitter when standing still)
             # beta=0.01 (Reacts fast when foot moves)
-            f_x = OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=fps)
-            f_y = OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=fps)
-            f_z = OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=fps)
+            f_x = OneEuroFilter(min_cutoff=1, beta=0.2, fps=fps)
+            f_y = OneEuroFilter(min_cutoff=1, beta=0.2, fps=fps)
+            f_z = OneEuroFilter(min_cutoff=1, beta=0.2, fps=fps)
             self.filters.append((f_x, f_y, f_z))
 
     def update(self, pts_3d):
@@ -512,9 +521,9 @@ class SkeletonSmoother:
             if np.isnan(x):
                 # Reset filter if tracking is lost
                 self.filters[i] = (
-                    OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=self.filters[i][0].fps),
-                    OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=self.filters[i][0].fps),
-                    OneEuroFilter(min_cutoff=0.5, beta=0.01, fps=self.filters[i][0].fps)
+                    OneEuroFilter(min_cutoff=1, beta=0.2, fps=self.filters[i][0].fps),
+                    OneEuroFilter(min_cutoff=1, beta=0.2, fps=self.filters[i][0].fps),
+                    OneEuroFilter(min_cutoff=1, beta=0.2, fps=self.filters[i][0].fps)
                 )
                 smoothed_pts[i] = [np.nan, np.nan, np.nan]
                 continue
