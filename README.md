@@ -1,4 +1,4 @@
-# Gait Cycle Parameters Data Dictionary
+## Gait Cycle Parameters Data Dictionary
 
 This document defines the variables used in the gait analysis system. All definitions assume **"Reference Foot"** refers to the side currently being analyzed (e.g., Left Leg).
 

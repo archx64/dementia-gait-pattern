@@ -13,7 +13,7 @@ class GaitAnalyzer:
 
         self.df = pd.read_csv(csv_path)
 
-        # Mapping WholeBody Keypoints
+        # mapping WholeBody Keypoints
         self.map = {
             "L_Heel_X": "j19_x",
             "L_Heel_Y": "j19_y",
@@ -43,11 +43,11 @@ class GaitAnalyzer:
         heel_z = self.df[self.map[f"{prefix}_Heel_{self.height_axis.upper()}"]].values
         toe_z = self.df[self.map[f"{prefix}_Toe_{self.height_axis.upper()}"]].values
 
-        # 1. Heel Strike (Minima of Heel Z)
+        # heel strike minima of Heel Z
         strike_signal = -heel_z if self.up_dir == 1 else heel_z
         strikes, _ = find_peaks(strike_signal, distance=self.fps * 0.5, prominence=0.01)
 
-        # 2. Toe Off (Max Upward Velocity of Toe Z)
+        # toe off calculated by getting max upward velocity of Toe Z
         vel_z = np.gradient(toe_z)
         off_signal = vel_z if self.up_dir == 1 else -vel_z
         offs, _ = find_peaks(off_signal, height=0.01, distance=self.fps * 0.5)
@@ -86,7 +86,6 @@ class GaitAnalyzer:
             if stride_dur == 0:
                 continue
 
-            # --- SPATIAL ---
             lx = self.df.iloc[start][self.map["L_Heel_X"]]
             lx_end = self.df.iloc[end][self.map["L_Heel_X"]]
 
@@ -111,11 +110,6 @@ class GaitAnalyzer:
             # step_width = abs(ly - ry) * 100
             step_width = abs(lx - rx) * 100
 
-            # Stride Length
-            # h_x, h_y = self.map[f"{side}_Heel_X"], self.map[f"{side}_Heel_Y"]
-            # p1 = self.df.iloc[start][[h_x, h_y]]
-            # p2 = self.df.iloc[end][[h_x, h_y]]
-            # stride_len = np.linalg.norm(p2 - p1) * 100
 
             # stride length
             h_x, h_z = self.map[f"{side}_Heel_X"], self.map[f"{side}_Heel_Z"]
@@ -124,13 +118,13 @@ class GaitAnalyzer:
             stride_len = np.linalg.norm(p2 - p1) * 100
 
             # --- TEMPORAL ---
-            # Own Foot Off
+            # own Foot Off
             valid_offs = offs[(offs > start) & (offs < end)]
             foot_off_pct = np.nan
             if len(valid_offs) > 0:
                 foot_off_pct = ((valid_offs[0] - start) / stride_frames) * 100
 
-            # Opp Contact
+            # opp Contact
             valid_opp_s = opp_strikes[(opp_strikes > start) & (opp_strikes < end)]
             opp_con_pct = np.nan
             step_time = np.nan
@@ -138,13 +132,13 @@ class GaitAnalyzer:
                 opp_con_pct = ((valid_opp_s[0] - start) / stride_frames) * 100
                 step_time = (valid_opp_s[0] - start) / self.fps
 
-            # Opp Off (Initial Double Support End)
+            # opp Off (Initial Double Support End)
             valid_opp_o = opp_offs[(opp_offs > start) & (opp_offs < end)]
             opp_off_pct = np.nan
             if len(valid_opp_o) > 0:
                 opp_off_pct = ((valid_opp_o[0] - start) / stride_frames) * 100
 
-            # Derived
+            # derived
             single_supp = (
                 opp_con_pct - opp_off_pct
                 if (not np.isnan(opp_con_pct) and not np.isnan(opp_off_pct))
@@ -164,7 +158,7 @@ class GaitAnalyzer:
                 if swing > 0:
                     limp = foot_off_pct / swing
 
-            # Append
+            # append
             metrics["StrideTime"].append(stride_dur)
             metrics["StrideLen"].append(stride_len)
             metrics["StepLen"].append(step_len)
@@ -180,14 +174,14 @@ class GaitAnalyzer:
             metrics["DoubleSupport"].append(double_supp)
             metrics["LimpIndex"].append(limp)
 
-        # Average
+        # average
         return {k: np.nanmean(v) if len(v) > 0 else 0 for k, v in metrics.items()}
 
     def generate_vicon_tables(self):
         l_strikes, l_offs = self.detect_events("L")
         r_strikes, r_offs = self.detect_events("R")
 
-        # 1. EVENTS TABLE
+        # events table
         events = []
         for f in l_strikes:
             events.append(
@@ -235,7 +229,7 @@ class GaitAnalyzer:
             {"Foot Strike": "Heel touches ground", "Foot Off": "Toe leaves ground"}
         )
 
-        # 2. PARAMETERS TABLE
+        # parameters table
         l_res = self.calculate_full_metrics(l_strikes, l_offs, r_strikes, r_offs, "L")
         r_res = self.calculate_full_metrics(r_strikes, r_offs, l_strikes, l_offs, "R")
 
@@ -287,7 +281,7 @@ def main():
     # print("\n# Events Table")
     # print(events_df.to_markdown(index=True))
 
-    # Save files
+    # save files
     params_df.to_csv("gait_parameters.csv", index=False)
     # events_df.to_csv("gait_events.csv", index=False)
 

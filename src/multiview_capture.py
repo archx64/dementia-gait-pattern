@@ -13,8 +13,8 @@ CAMERA_SOURCES = [
 
 BASE_DIR = "new_calibration_data"
 VIDEO_DIR = "synchronized_videos"
-# FPS_ANALYSIS = 13.4  # target FPS
 
+WINDOW_NAME = "Multi-View Capture"
 
 class ThreadedCamera:
     def __init__(self, src, id):
@@ -124,17 +124,16 @@ def main():
     is_recording = False
     writers = []
 
-    # PERFORMANCE METRICS
+    # performance metrics
     loop_counter = 0
     start_time = time.time()
 
-    # VISUALIZATION SETTING
-    # Only update the screen every N frames to save CPU for recording
+    # visualization settings, only update the screen every N frames to save CPU for recording
     DISPLAY_EVERY_N_FRAMES = 4
 
     try:
         while True:
-            # 1. READ FRAMES
+            # read frames
             current_frames = []
             current_ids = []
 
@@ -150,17 +149,17 @@ def main():
             if any(f is None for f in current_frames):
                 continue
 
-            # 2. VIDEO RECORDING (Priority Task)
+            # video recording
             if is_recording:
                 for i, writer in enumerate(writers):
                     writer.write(current_frames[i])
 
-            # 3. VISUALIZATION (Background Task)
-            # We skip this heavy processing most of the time to keep FPS high
+            # visualization, this shows 4 cameras 
+            # We skipped this heavy processing most of the time to keep FPS high
             loop_counter += 1
             if loop_counter % DISPLAY_EVERY_N_FRAMES == 0:
 
-                # --- VISUALIZATION LOGIC START ---
+                # visualization logic start
                 display_h = 480
                 previews = []
                 for frame in current_frames:
@@ -180,19 +179,19 @@ def main():
                 else:
                     combined = cv2.hconcat(previews)
 
-                # Calculate Real FPS to show on screen
+                # calculate Real FPS to show on screen
                 elapsed = time.time() - start_time
                 if elapsed > 0:
                     real_fps = loop_counter / elapsed
                 else:
                     real_fps = 0
 
-                # Reset counter every 10 seconds to keep average fresh
+                # reset counter every 10 seconds to keep average fresh
                 if elapsed > 10:
                     start_time = time.time()
                     loop_counter = 0
 
-                # Status Overlays
+                # status Overlays
                 status_color = (0, 0, 255) if is_recording else (0, 255, 0)
                 status_text = "REC" if is_recording else "STBY"
 
@@ -218,23 +217,22 @@ def main():
                     thickness=2,
                 )
 
-                cv2.imshow("Multi-View Capture (Optimized)", combined)
-                # --- VISUALIZATION LOGIC END ---
+                cv2.imshow(WINDOW_NAME, combined)
 
-            # Handle Keypress (Must be outside the if-statement to capture input)
+            # handle Keypress (Must be outside the if-statement to capture input)
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord("q"):
                 break
             elif key == ord("s"):
-                # Save Logic
+                # save Logic
                 for i, frame in enumerate(current_frames):
                     fname = f"frame_{photo_count:03d}.jpg"
                     cv2.imwrite(os.path.join(BASE_DIR, f"cam{i+1}", fname), frame)
                 print(f"saved pair {photo_count}")
                 photo_count += 1
             elif key == ord("r"):
-                # Record Logic
+                # record Logic
                 if not is_recording:
                     writers = get_video_writers(num_cams, frame_w, frame_h, cam_fps)
                     is_recording = True

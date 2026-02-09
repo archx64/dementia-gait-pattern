@@ -1,9 +1,9 @@
-import cv2, os, csv, torch, functools, math, itertools
+import cv2, os, csv, torch, functools
 import numpy as np
 from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
 
-# === CONFIGURATION ===
+# configuration
 from utils import (
     INFO,
     ERROR,
@@ -20,7 +20,7 @@ from utils import (
     MultiviewTriangulator,
 )
 
-# RTMW-x (WholeBody)
+# rtmw-x whole body model
 MODEL_CONFIG = "rtmw-x_8xb320-270e_cocktail14-384x288.py"
 MODEL_CHECKPOINT = "rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth"
 
@@ -39,24 +39,12 @@ def main():
 
     caps = [cv2.VideoCapture(v) for v in VIDEO_PATHS]
     if not all(c.isOpened() for c in caps):
-        print(ERROR + "Cannot open videos.")
+        print(ERROR + "could not open videos.")
         return
 
     triangulator = MultiviewTriangulator(CALIBRATION_FILE, VIDEO_PATHS)
     
-    # FIX 1: Initialize Smoother with 133 joints
-    smoother = SkeletonSmoother(num_joints=133, fps=FPS_ANALYSIS)
-
-    # FIX 2: Output CSV Header for 133 joints
-    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
-    f_csv = open(OUTPUT_CSV, "w", newline="")
-    writer = csv.writer(f_csv)
-    header = ["frame_idx"]
-    for i in range(133):  # <--- CHANGED from 23 to 133
-        header.extend([f"j{i}_x", f"j{i}_y", f"j{i}_z"])
-    writer.writerow(header)
-
-    # Initialization
+    # initialization
     frames_0 = []
     for c in caps:
         ret, f = c.read()
@@ -72,27 +60,42 @@ def main():
     selector = PersonSelector()
     target_idx = selector.select_person(frames_0[0], res_0[0])
 
-    # FIX 3: Store ALL 133 keypoints for matching
-    ref_kpts = res_0[0][target_idx]["keypoints"] # No slicing [:23]
+    # store ALL keypoints for matching
+    ref_kpts = res_0[0][target_idx]["keypoints"]  
+    num_joints = len(ref_kpts)
+    print(INFO + f"Detected {num_joints} keypoints from model.")
+
+    # initialize Smoother with all joints
+    smoother = SkeletonSmoother(num_joints=num_joints, fps=FPS_ANALYSIS)
+
+    # output CSV Header for all joints
+    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+    f_csv = open(OUTPUT_CSV, "w", newline="")
+    writer = csv.writer(f_csv)
+    header = ["frame_idx"]
+
+    for i in range(num_joints):  
+        header.extend([f"j{i}_x", f"j{i}_y", f"j{i}_z"])
+    writer.writerow(header)
 
     indices = {0: target_idx}
     prev_centroids = {}
 
-    # Auto-match other views
+    # auto-match other views
     for i in range(1, len(caps)):
         idx = selector.match_person(ref_kpts, res_0[i], triangulator, 0, i)
         indices[i] = idx
         print(f"Cam {i}: Matched Person {idx}")
 
-    # Init Centroids
+    # init Centroids
     for i in range(len(caps)):
         bbox = res_0[i][indices[i]]["bbox"][0]
         prev_centroids[i] = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
 
-    # --- PROCESSING LOOP ---
+    # processing loop start
     print(INFO + "Starting Robust Processing...")
 
-    # Rotation Matrix for Tilt
+    # rotation matrix for fixing tilt
     theta = np.radians(TILT_CORRECTION_ANGLE)
     c, s = np.cos(theta), np.sin(theta)
     R_fix = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
@@ -107,17 +110,17 @@ def main():
         if any(f is None for f in frames):
             break
 
-        # 1. INFERENCE
+        # inference
         all_preds = []
         for f in frames:
             r = next(inferencer(f, return_vis=False))
             all_preds.append(r["predictions"][0])
 
         current_indices = {}
-        # FIX 4: Array size 133
-        pts_3d_frame = np.zeros((133, 3))
 
-        # 2. TRACKING (Centroid Distance)
+        pts_3d_frame = np.zeros((num_joints, 3))
+
+        # tracking centroid distance
         for i, preds in enumerate(all_preds):
             if not preds:
                 continue
@@ -137,9 +140,9 @@ def main():
                 bbox = preds[best_idx]["bbox"][0]
                 prev_centroids[i] = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
 
-        # 3. ROBUST TRIANGULATION
-        # FIX 5: Loop through ALL 133 joints (Critical Fix)
-        for j in range(133):  # <--- CHANGED from 23 to 133
+        # robust triangulation
+        # loop through ALL joints (Critical Fix)
+        for j in range(num_joints):
             views = []
             for cam_idx in range(len(caps)):
                 if cam_idx not in current_indices:
@@ -147,7 +150,7 @@ def main():
                 p_idx = current_indices[cam_idx]
                 pred = all_preds[cam_idx][p_idx]
 
-                # Check confidence
+                # check confidence
                 score = pred["keypoint_scores"][j]
                 if score > CONFIDENCE_THR:
                     u, v = pred["keypoints"][j]
@@ -155,13 +158,13 @@ def main():
 
             pts_3d_frame[j] = triangulator.triangulate_one_point(views)
 
-        # 4. TILT CORRECTION & SMOOTHING
+        # tilt correction and smoothing
         pts_3d_frame = pts_3d_frame @ R_fix.T
         
         if SKELETON_SMOOTHING:
             pts_3d_frame = smoother.update(pts_3d_frame)
 
-        # 5. SAVE & VISUALIZE
+        # save and visualize
         row = [frame_idx]
         for p in pts_3d_frame:
             if np.isnan(p[0]):
@@ -174,12 +177,12 @@ def main():
             ax.cla()
             valid = pts_3d_frame[~np.isnan(pts_3d_frame[:, 0])]
             if len(valid) > 0:
-                # Plotting all 133 points might be heavy, but useful for debugging
+                # plotting all points might be heavy, but useful for debugging
                 ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2) 
                 ax.set_xlim(-2, 2)
                 ax.set_ylim(-2, 2)
                 ax.set_zlim(0, 3)
-                ax.set_title(f"WholeBody Tracking (133 pts): Frame {frame_idx}")
+                ax.set_title(f"WholeBody Tracking ({num_joints} pts): Frame {frame_idx}")
             plt.pause(0.001)
             cv2.imshow("Main View", cv2.resize(frames[0], (1280, 720)))
             if cv2.waitKey(1) == 27:
