@@ -402,6 +402,7 @@ header = ["frame_idx", "total_distance_m"]
 
 # ========== classes for pose estimation start ==========
 
+
 class PersonSelector:
     def __init__(self):
         self.selected_point = None
@@ -599,3 +600,41 @@ class MultiviewTriangulator:
         u, s, vh = np.linalg.svd(np.array(A))
         X = vh[-1]
         return (X / X[3])[:3]
+
+
+class CoordinateAligner:
+    def __init__(self):
+        self.R_fix = np.eye(3)
+        self.is_calibrated = False
+
+    def calibrate_floor(self, standing_keypoints):
+        """
+        Learns the tilt of the floor.
+        standing_keypoints: (N, 3) array of feet keypoints (Heels/Toes)
+        from the first few frames.
+        """
+        if len(standing_keypoints) < 2:
+            print(WARNING + "Not enough points to calibrate floor. Using identity.")
+            return
+
+        # Calculate average height (Y) and depth (Z) of the feet
+        # We look at the Y-Z plane because that's where the 'tilt' happens
+        avg_y = np.mean(standing_keypoints[:, 1])
+        avg_z = np.mean(standing_keypoints[:, 2])
+
+        # Calculate the pitch angle (rotation around X-axis)
+        # This finds the angle between the camera's Z-axis and the floor
+        theta = -np.arctan2(avg_y, avg_z)
+
+        c, s = np.cos(theta), np.sin(theta)
+        self.R_fix = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+        self.is_calibrated = True
+        return np.degrees(theta)
+
+    def align(self, pts_3d):
+        """Applies the calculated rotation to a frame of keypoints."""
+        if not self.is_calibrated:
+            return pts_3d
+        # Apply rotation: pts_3d is (N, 3), R_fix is (3, 3)
+        return pts_3d @ self.R_fix.T

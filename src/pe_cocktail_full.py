@@ -120,6 +120,8 @@ def main():
 
         pts_3d_frame = np.zeros((num_joints, 3))
 
+        initial_feet = pts_3d_frame[[19, 22], :]
+
         # tracking centroid distance
         for i, preds in enumerate(all_preds):
             if not preds:
