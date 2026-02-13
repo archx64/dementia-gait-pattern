@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Fasai,Left,Cadence,154.78098121839827,steps/min
+Fasai,Left,Walking Speed,1.0558219053953557,m/s
+Fasai,Left,Stride Time,0.8314285714285715,s
+Fasai,Left,Step Time,0.405,s
+Fasai,Left,Opposite Foot Off,54.16871363930187,%
+Fasai,Left,Opposite Foot Contact,41.324280724435525,%
+Fasai,Left,Foot Off,43.18338524220877,%
+Fasai,Left,Single Support,-18.741919844861023,%
+Fasai,Left,Double Support,68.8267614738203,%
+Fasai,Left,Stride Length,88.04287472673552,cm
+Fasai,Left,Step Length,44.71014411707579,cm
+Fasai,Left,Step Width,16.45427032890426,cm
+Fasai,Left,Limp Index,2.047692923769479,nan
+Fasai,Right,Cadence,141.87598122339207,steps/min
+Fasai,Right,Walking Speed,1.0709168517428287,m/s
+Fasai,Right,Stride Time,0.8933333333333334,s
+Fasai,Right,Step Time,0.4600000000000001,s
+Fasai,Right,Opposite Foot Off,58.16988687216003,%
+Fasai,Right,Opposite Foot Contact,49.52868789702406,%
+Fasai,Right,Foot Off,43.77355480305395,%
+Fasai,Right,Single Support,-13.42218015313304,%
+Fasai,Right,Double Support,52.89005262328692,%
+Fasai,Right,Stride Length,95.61553662128817,cm
+Fasai,Right,Step Length,40.08017213062122,cm
+Fasai,Right,Step Width,14.711379071719387,cm
+Fasai,Right,Limp Index,1.1784265350877194,nan

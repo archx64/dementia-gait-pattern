@@ -1,7 +1,8 @@
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
+import os, numpy as np, pandas as pd
 from scipy.signal import butter, filtfilt, find_peaks
-from utils import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME
+from utils import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME, ROUND, INFO, DEBUG
 
 
 class GaitAnalyzer:
@@ -95,9 +96,12 @@ class GaitAnalyzer:
             rx_end = self.df.iloc[end][self.map["R_Heel_X"]]
 
             ry = self.df.iloc[start][self.map["R_Heel_Y"]]
-            
+
             lz = self.df.iloc[start][self.map["L_Heel_Z"]]
             rz = self.df.iloc[start][self.map["R_Heel_Z"]]
+
+            # lz = abs(lz)
+            # rz = abs(rz)
 
             # print(f'L_Heel_X: {lx}')
             # print(f'L_Heel_Y: {ly}')
@@ -105,17 +109,19 @@ class GaitAnalyzer:
             # print(f'R_Heel_Y: {ry}')
 
             # Step Length & Width
-            # step_len = np.sqrt((lx - rx) ** 2 + (lz - rz) ** 2) * 100
-            step_len = abs(lz-rz) * 100
-            # step_width = abs(ly - ry) * 100
-            step_width = abs(lx - rx) * 100
+            step_len = np.sqrt((lx - rx) ** 2 + (lz - rz) ** 2) * 100 * 2
+            # step_len = abs(lz - rz) * 100
 
+            # step_len = abs(lz - rz) * 100 * 2
+            step_width = abs(ly - ry) * 100
+            # step_width = abs(lx - rx) * 100 * 1.5
 
             # stride length
             h_x, h_z = self.map[f"{side}_Heel_X"], self.map[f"{side}_Heel_Z"]
             p1 = self.df.iloc[start][[h_x, h_z]]
             p2 = self.df.iloc[end][[h_x, h_z]]
             stride_len = np.linalg.norm(p2 - p1) * 100
+            # stride_len = np.linalg.norm(p2- p1) * 100 * 2
 
             # --- TEMPORAL ---
             # own Foot Off
@@ -163,7 +169,7 @@ class GaitAnalyzer:
             metrics["StrideLen"].append(stride_len)
             metrics["StepLen"].append(step_len)
             metrics["StepWidth"].append(step_width)
-            metrics['WalkingSpeed'].append((stride_len/100)/stride_dur)
+            metrics["WalkingSpeed"].append((stride_len / 100) / stride_dur)
             # metrics["WalkingSpeed"].append((stride_len / 10) / stride_dur)
             metrics["Cadence"].append((60 / stride_dur) * 2)
             metrics["StepTime"].append(step_time)
@@ -272,7 +278,7 @@ class GaitAnalyzer:
 
 
 def main():
-    analyzer = GaitAnalyzer(OUTPUT_CSV, fps=FPS_ANALYSIS)
+    analyzer = GaitAnalyzer(OUTPUT_CSV, fps=FPS_ANALYSIS, height_axis="z")
     params_df, events_df = analyzer.generate_vicon_tables()
 
     print("\n# Gait Cycle Parameters")
@@ -282,7 +288,17 @@ def main():
     # print(events_df.to_markdown(index=True))
 
     # save files
-    params_df.to_csv("gait_parameters.csv", index=False)
+
+    gait_out = f"gait-cycle-parameters"
+
+    os.makedirs(gait_out, exist_ok=True)
+
+    save_path = os.path.join(gait_out, f"{SUBJECT_NAME}_gait_{ROUND}.csv")
+
+    params_df.to_csv(save_path, index=False)
+
+    print(INFO + "saved gait csv file to:", end=" ")
+    print(DEBUG + f"{save_path}")
     # events_df.to_csv("gait_events.csv", index=False)
 
 

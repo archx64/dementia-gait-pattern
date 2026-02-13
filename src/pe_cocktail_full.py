@@ -85,7 +85,8 @@ def main():
     for i in range(1, len(caps)):
         idx = selector.match_person(ref_kpts, res_0[i], triangulator, 0, i)
         indices[i] = idx
-        print(f"Cam {i}: Matched Person {idx}")
+        j = i + 1
+        print(f"Cam {j}: Matched Person {idx}")
 
     # init Centroids
     for i in range(len(caps)):
@@ -181,9 +182,10 @@ def main():
             if len(valid) > 0:
                 # plotting all points might be heavy, but useful for debugging
                 ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2) 
-                ax.set_xlim(-2, 2)
-                ax.set_ylim(-2, 2)
-                ax.set_zlim(0, 3)
+                ax.set_xlim(-2, 6)
+                # ax.set_ylim(-2, 2)
+                ax.set_ylim(-2, 6)
+                ax.set_zlim(0, 6)
                 ax.set_title(f"WholeBody Tracking ({num_joints} pts): Frame {frame_idx}")
             plt.pause(0.001)
             cv2.imshow("Main View", cv2.resize(frames[0], (1280, 720)))

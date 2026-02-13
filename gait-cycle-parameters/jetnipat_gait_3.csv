@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+jetnipat,Left,Cadence,148.61300979722034,steps/min
+jetnipat,Left,Walking Speed,1.0812034244402953,m/s
+jetnipat,Left,Stride Time,0.9015384615384617,s
+jetnipat,Left,Step Time,0.4945454545454545,s
+jetnipat,Left,Opposite Foot Off,55.13541084115247,%
+jetnipat,Left,Opposite Foot Contact,60.192811574390525,%
+jetnipat,Left,Foot Off,47.568200805042906,%
+jetnipat,Left,Single Support,8.992114123693069,%
+jetnipat,Left,Double Support,38.15860674413305,%
+jetnipat,Left,Stride Length,101.1198567411697,cm
+jetnipat,Left,Step Length,42.616579561049655,cm
+jetnipat,Left,Step Width,15.554773503435023,cm
+jetnipat,Left,Limp Index,1.2191580478345183,nan
+jetnipat,Right,Cadence,160.25057588233068,steps/min
+jetnipat,Right,Walking Speed,0.9873861228691843,m/s
+jetnipat,Right,Stride Time,0.8830769230769231,s
+jetnipat,Right,Step Time,0.26,s
+jetnipat,Right,Opposite Foot Off,35.61992175140843,%
+jetnipat,Right,Opposite Foot Contact,29.41129944774034,%
+jetnipat,Right,Foot Off,40.621067582968415,%
+jetnipat,Right,Single Support,-12.5519085869717,%
+jetnipat,Right,Double Support,42.037549407114625,%
+jetnipat,Right,Stride Length,81.46142638579474,cm
+jetnipat,Right,Step Length,48.63472034262328,cm
+jetnipat,Right,Step Width,15.030672326487094,cm
+jetnipat,Right,Limp Index,2.4596515024600327,nan

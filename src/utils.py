@@ -50,14 +50,35 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 
 
 # ========== pose estimation ==========
-SUBJECT_NAME = "Kaung"
+SUBJECT_NAME = "prom"
+ROUND = 5
+
+INPUT_DIR = "synchronized_videos"
+
+VIDEO_PATHS = [
+    os.path.join(
+        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.mp4"
+    ),
+    os.path.join(
+        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.mp4"
+    ),
+    os.path.join(
+        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab3.mp4"
+    ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab4.mp4"
+    # ),
+]
+
 FPS_ANALYSIS = 25
 ROBUST_TRIANGULATION = True
 
 SKELETON_SMOOTHING = False
 
-INPUT_DIR = "synchronized_videos"
 OUTPUT_DIR = "output"
+
+OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_skeleton_{ROUND}.csv")
+
 CALIBRATION_FILE = os.path.join(
     INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz"
 )
@@ -70,15 +91,6 @@ CONFIG_PATH = os.path.join(
 WEIGHT_PATH = os.path.join(LIB_DIR, "mmpose_weights")
 
 TILT_CORRECTION_ANGLE = -12
-
-# uncomment this for 4 cameras
-
-VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab1.mp4"),
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab2.mp4"),
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab3.mp4"),
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab4.mp4"),
-]
 
 SKELETON = [
     # --- Body (Standard COCO) ---
@@ -384,7 +396,6 @@ keypoint_names = [
 ]
 
 
-OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_multiview_skeleton_3d.csv")
 # ========== pose estimation end ==========
 
 
@@ -607,34 +618,52 @@ class CoordinateAligner:
         self.R_fix = np.eye(3)
         self.is_calibrated = False
 
-    def calibrate_floor(self, standing_keypoints):
+    def fit_floor_plane(self, feet_points_history):
         """
-        Learns the tilt of the floor.
-        standing_keypoints: (N, 3) array of feet keypoints (Heels/Toes)
-        from the first few frames.
+        Uses SVD to fit a plane to the collection of feet points (N, 3).
+        Calculates rotation matrix to align floor normal with Y-axis (0, 1, 0).
         """
-        if len(standing_keypoints) < 2:
-            print(WARNING + "Not enough points to calibrate floor. Using identity.")
+        points = np.array(feet_points_history)
+        points = points[~np.isnan(points).any(axis=1)]  # remove NaNs
+
+        if len(points) < 10:
+            print(WARNING + "Not enough points to calibrate floor. Using Identity.")
             return
 
-        # Calculate average height (Y) and depth (Z) of the feet
-        # We look at the Y-Z plane because that's where the 'tilt' happens
-        avg_y = np.mean(standing_keypoints[:, 1])
-        avg_z = np.mean(standing_keypoints[:, 2])
+        # 1. Centroid
+        centroid = np.mean(points, axis=0)
 
-        # Calculate the pitch angle (rotation around X-axis)
-        # This finds the angle between the camera's Z-axis and the floor
-        theta = -np.arctan2(avg_y, avg_z)
+        # 2. SVD
+        u, s, vh = np.linalg.svd(points - centroid)
+        normal = vh[2, :]  # The normal vector of the fitted plane
 
-        c, s = np.cos(theta), np.sin(theta)
-        self.R_fix = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+        # Ensure normal points UP (OpenCV Y is Down, but we want 'Height' to be Y)
+        # We will rotate so the floor normal becomes (0, -1, 0) in OpenCV coords,
+        # making -Y the "Up" direction for analysis later.
+        # OR simpler: We rotate so floor normal becomes (0, 1, 0) and then treat Y as up.
+
+        target_normal = np.array([0, 1, 0])  # Target Y-up
+
+        # Check direction
+        if np.dot(normal, target_normal) < 0:
+            normal = -normal
+
+        # 3. Compute Rotation Matrix (Rodrigues)
+        v = np.cross(normal, target_normal)
+        c = np.dot(normal, target_normal)
+        s = np.linalg.norm(v)
+
+        if s < 1e-6:
+            self.R_fix = np.eye(3)
+        else:
+            kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+            self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
 
         self.is_calibrated = True
-        return np.degrees(theta)
+        print(SUCCESS + f"Floor calibrated. Normal: {normal}")
 
     def align(self, pts_3d):
-        """Applies the calculated rotation to a frame of keypoints."""
         if not self.is_calibrated:
             return pts_3d
-        # Apply rotation: pts_3d is (N, 3), R_fix is (3, 3)
+        # Apply rotation (pts @ R.T)
         return pts_3d @ self.R_fix.T

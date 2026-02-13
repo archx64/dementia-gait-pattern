@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Saswat,Left,Cadence,158.07787954118456,steps/min
+Saswat,Left,Walking Speed,1.0794832411437318,m/s
+Saswat,Left,Stride Time,0.9342857142857142,s
+Saswat,Left,Step Time,0.4960000000000001,s
+Saswat,Left,Opposite Foot Off,25.55018698202745,%
+Saswat,Left,Opposite Foot Contact,56.13499851915183,%
+Saswat,Left,Foot Off,43.899426660296214,%
+Saswat,Left,Single Support,2.010419024149003,%
+Saswat,Left,Double Support,15.137027350986159,%
+Saswat,Left,Stride Length,92.82894741847572,cm
+Saswat,Left,Step Length,56.42215146652774,cm
+Saswat,Left,Step Width,16.74932091860304,cm
+Saswat,Left,Limp Index,1.5623484136961094,nan
+Saswat,Right,Cadence,157.6796351796352,steps/min
+Saswat,Right,Walking Speed,0.9386095491134709,m/s
+Saswat,Right,Stride Time,0.8506666666666667,s
+Saswat,Right,Step Time,0.38181818181818183,s
+Saswat,Right,Opposite Foot Off,49.314790148123485,%
+Saswat,Right,Opposite Foot Contact,41.80005600460145,%
+Saswat,Right,Foot Off,21.847911347911342,%
+Saswat,Right,Single Support,-7.09304584304585,%
+Saswat,Right,Double Support,41.96710696710698,%
+Saswat,Right,Stride Length,80.18593524145653,cm
+Saswat,Right,Step Length,32.37070509648124,cm
+Saswat,Right,Step Width,21.141507158825956,cm
+Saswat,Right,Limp Index,0.33874458874458874,nan

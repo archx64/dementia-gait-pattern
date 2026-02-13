@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Teerapon,Left,Cadence,152.71908996112157,steps/min
+Teerapon,Left,Walking Speed,0.8468416940950201,m/s
+Teerapon,Left,Stride Time,0.8673684210526316,s
+Teerapon,Left,Step Time,0.4123076923076924,s
+Teerapon,Left,Opposite Foot Off,42.565992409511054,%
+Teerapon,Left,Opposite Foot Contact,43.70907762571927,%
+Teerapon,Left,Foot Off,32.27968766708839,%
+Teerapon,Left,Single Support,-11.965343995226888,%
+Teerapon,Left,Double Support,35.32061473237944,%
+Teerapon,Left,Stride Length,79.71610636589179,cm
+Teerapon,Left,Step Length,46.82019970454838,cm
+Teerapon,Left,Step Width,16.47136173554932,cm
+Teerapon,Left,Limp Index,0.5781169902222535,nan
+Teerapon,Right,Cadence,143.90214250312002,steps/min
+Teerapon,Right,Walking Speed,0.6998255926136887,m/s
+Teerapon,Right,Stride Time,0.9688888888888889,s
+Teerapon,Right,Step Time,0.42000000000000004,s
+Teerapon,Right,Opposite Foot Off,44.03004873925097,%
+Teerapon,Right,Opposite Foot Contact,42.20175897716998,%
+Teerapon,Right,Foot Off,43.22167641825508,%
+Teerapon,Right,Single Support,-0.07815349948664974,%
+Teerapon,Right,Double Support,37.91702680315839,%
+Teerapon,Right,Stride Length,62.03769770034455,cm
+Teerapon,Right,Step Length,42.832575044538466,cm
+Teerapon,Right,Step Width,13.66547074762873,cm
+Teerapon,Right,Limp Index,2.974846815629253,nan

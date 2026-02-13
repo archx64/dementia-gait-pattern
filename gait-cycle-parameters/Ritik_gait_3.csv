@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Ritik,Left,Cadence,129.78174603174602,steps/min
+Ritik,Left,Walking Speed,0.9025061248759508,m/s
+Ritik,Left,Stride Time,1.24,s
+Ritik,Left,Step Time,0.6742857142857144,s
+Ritik,Left,Opposite Foot Off,21.80187074829932,%
+Ritik,Left,Opposite Foot Contact,49.670918367346935,%
+Ritik,Left,Foot Off,32.695105820105816,%
+Ritik,Left,Single Support,27.869047619047617,%
+Ritik,Left,Double Support,2.9430272108843525,%
+Ritik,Left,Stride Length,118.52170786630569,cm
+Ritik,Left,Step Length,42.5356779512031,cm
+Ritik,Left,Step Width,15.48445940096754,cm
+Ritik,Left,Limp Index,0.5825396081143208,nan
+Ritik,Right,Cadence,170.34156611362494,steps/min
+Ritik,Right,Walking Speed,1.1645338962394887,m/s
+Ritik,Right,Stride Time,0.7966666666666665,s
+Ritik,Right,Step Time,0.2866666666666667,s
+Ritik,Right,Opposite Foot Off,53.001149177619766,%
+Ritik,Right,Opposite Foot Contact,38.25956450956451,%
+Ritik,Right,Foot Off,40.447135585003224,%
+Ritik,Right,Single Support,-15.062957875457874,%
+Ritik,Right,Double Support,57.05128205128205,%
+Ritik,Right,Stride Length,91.31241683357833,cm
+Ritik,Right,Step Length,77.70425044483567,cm
+Ritik,Right,Step Width,21.094073529115978,cm
+Ritik,Right,Limp Index,0.8953118368559545,nan

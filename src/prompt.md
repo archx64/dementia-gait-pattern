@@ -55,14 +55,27 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 
 
 # ========== pose estimation ==========
-SUBJECT_NAME = "Kaung"
+SUBJECT_NAME = "Lin"
+ROUND = 1
+
+INPUT_DIR = "synchronized_videos"
+
+VIDEO_PATHS = [
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab1.mp4"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab2.mp4"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab3.mp4"),
+    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab4.mp4"),
+]
+
 FPS_ANALYSIS = 25
 ROBUST_TRIANGULATION = True
 
 SKELETON_SMOOTHING = False
 
-INPUT_DIR = "synchronized_videos"
 OUTPUT_DIR = "output"
+
+OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_skeleton_{ROUND}.csv")
+
 CALIBRATION_FILE = os.path.join(
     INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz"
 )
@@ -75,15 +88,6 @@ CONFIG_PATH = os.path.join(
 WEIGHT_PATH = os.path.join(LIB_DIR, "mmpose_weights")
 
 TILT_CORRECTION_ANGLE = -12
-
-# uncomment this for 4 cameras
-
-VIDEO_PATHS = [
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab1.mp4"),
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab2.mp4"),
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab3.mp4"),
-    os.path.join(INPUT_DIR, "0850-1210_Lin_2_AILab4.mp4"),
-]
 
 SKELETON = [
     # --- Body (Standard COCO) ---
@@ -389,7 +393,7 @@ keypoint_names = [
 ]
 
 
-OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_multiview_skeleton_3d.csv")
+
 # ========== pose estimation end ==========
 
 
@@ -406,6 +410,7 @@ header = ["frame_idx", "total_distance_m"]
 
 
 # ========== classes for pose estimation start ==========
+
 
 class PersonSelector:
     def __init__(self):
@@ -605,11 +610,45 @@ class MultiviewTriangulator:
         X = vh[-1]
         return (X / X[3])[:3]
 
+
+class CoordinateAligner:
+    def __init__(self):
+        self.R_fix = np.eye(3)
+        self.is_calibrated = False
+
+    def calibrate_floor(self, standing_keypoints):
+        """
+        Learns the tilt of the floor.
+        standing_keypoints: (N, 3) array of feet keypoints (Heels/Toes)
+        from the first few frames.
+        """
+        if len(standing_keypoints) < 2:
+            print(WARNING + "Not enough points to calibrate floor. Using identity.")
+            return
+
+        # Calculate average height (Y) and depth (Z) of the feet
+        # We look at the Y-Z plane because that's where the 'tilt' happens
+        avg_y = np.mean(standing_keypoints[:, 1])
+        avg_z = np.mean(standing_keypoints[:, 2])
+
+        # Calculate the pitch angle (rotation around X-axis)
+        # This finds the angle between the camera's Z-axis and the floor
+        theta = -np.arctan2(avg_y, avg_z)
+
+        c, s = np.cos(theta), np.sin(theta)
+        self.R_fix = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
+
+        self.is_calibrated = True
+        return np.degrees(theta)
+
+    def align(self, pts_3d):
+        """Applies the calculated rotation to a frame of keypoints."""
+        if not self.is_calibrated:
+            return pts_3d
+        # Apply rotation: pts_3d is (N, 3), R_fix is (3, 3)
+        return pts_3d @ self.R_fix.T
+
 ```
-
-
-
-
 
 
 ### multivew_capturepy
@@ -1311,7 +1350,8 @@ def main():
     for i in range(1, len(caps)):
         idx = selector.match_person(ref_kpts, res_0[i], triangulator, 0, i)
         indices[i] = idx
-        print(f"Cam {i}: Matched Person {idx}")
+        j = i + 1
+        print(f"Cam {j}: Matched Person {idx}")
 
     # init Centroids
     for i in range(len(caps)):
@@ -1345,6 +1385,8 @@ def main():
         current_indices = {}
 
         pts_3d_frame = np.zeros((num_joints, 3))
+
+        initial_feet = pts_3d_frame[[19, 22], :]
 
         # tracking centroid distance
         for i, preds in enumerate(all_preds):
@@ -1405,9 +1447,10 @@ def main():
             if len(valid) > 0:
                 # plotting all points might be heavy, but useful for debugging
                 ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2) 
-                ax.set_xlim(-2, 2)
-                ax.set_ylim(-2, 2)
-                ax.set_zlim(0, 3)
+                ax.set_xlim(-2, 6)
+                # ax.set_ylim(-2, 2)
+                ax.set_ylim(-2, 6)
+                ax.set_zlim(0, 6)
                 ax.set_title(f"WholeBody Tracking ({num_joints} pts): Frame {frame_idx}")
             plt.pause(0.001)
             cv2.imshow("Main View", cv2.resize(frames[0], (1280, 720)))
@@ -1430,10 +1473,11 @@ if __name__ == "__main__":
 This calibrate gait cycle parameters using 3D skeleton csv generated from pose_estimation_cocktail_full.py. It's supposed to calculate accurate gait cycle parameters comparable to VICON system.
 
 ```python
-import pandas as pd
-import numpy as np
+# import pandas as pd
+# import numpy as np
+import os, numpy as np, pandas as pd
 from scipy.signal import butter, filtfilt, find_peaks
-from utils import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME
+from utils import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME, ROUND, INFO, DEBUG
 
 
 class GaitAnalyzer:
@@ -1527,7 +1571,7 @@ class GaitAnalyzer:
             rx_end = self.df.iloc[end][self.map["R_Heel_X"]]
 
             ry = self.df.iloc[start][self.map["R_Heel_Y"]]
-            
+
             lz = self.df.iloc[start][self.map["L_Heel_Z"]]
             rz = self.df.iloc[start][self.map["R_Heel_Z"]]
 
@@ -1538,10 +1582,9 @@ class GaitAnalyzer:
 
             # Step Length & Width
             # step_len = np.sqrt((lx - rx) ** 2 + (lz - rz) ** 2) * 100
-            step_len = abs(lz-rz) * 100
+            step_len = abs(lz - rz) * 100
             # step_width = abs(ly - ry) * 100
             step_width = abs(lx - rx) * 100
-
 
             # stride length
             h_x, h_z = self.map[f"{side}_Heel_X"], self.map[f"{side}_Heel_Z"]
@@ -1595,7 +1638,7 @@ class GaitAnalyzer:
             metrics["StrideLen"].append(stride_len)
             metrics["StepLen"].append(step_len)
             metrics["StepWidth"].append(step_width)
-            metrics['WalkingSpeed'].append((stride_len/100)/stride_dur)
+            metrics["WalkingSpeed"].append((stride_len / 100) / stride_dur)
             # metrics["WalkingSpeed"].append((stride_len / 10) / stride_dur)
             metrics["Cadence"].append((60 / stride_dur) * 2)
             metrics["StepTime"].append(step_time)
@@ -1714,14 +1757,27 @@ def main():
     # print(events_df.to_markdown(index=True))
 
     # save files
-    params_df.to_csv("gait_parameters.csv", index=False)
+
+    gait_out = "gait-cycle-parameters"
+
+    os.makedirs(gait_out, exist_ok=True)
+
+    save_path = os.path.join(gait_out, f"{SUBJECT_NAME}_gait_{ROUND}.csv")
+
+    params_df.to_csv(
+        save_path, index=False
+    )
+
+    print(INFO + 'saved gait csv file to:', end=' ')
+    print(DEBUG + f'{save_path}')
     # events_df.to_csv("gait_events.csv", index=False)
 
 
 if __name__ == "__main__":
     main()
 
+
 ```
 
 
-Is the pipeline working correctly? What else would you like to suggest for improving the accuracy of gait cycle parameters? In the 3D space of pose estimation, the person is moving towards the camera. X is width. Y is height. Z is depth. If we wanna know how much the person is moving forward, we use Z axis. To determine the side movement, we use X axis. To calculate the height, Y is used. I doubt that tilt correction angle is causing the gait analysis to calculate inaccurate values. Is my doubt correct? 
+Is the pipeline working correctly? What else would you like to suggest for improving the accuracy of gait cycle parameters? In the 3D space of pose estimation, the person is moving towards the camera. Unlike matplotlib axes, X is width. Y is height. Z is depth. If we wanna know how much the person is moving forward, we use Z axis. To determine the side movement, we use X axis. To calculate the height, Y is used. I doubt that tilt correction angle is causing the gait analysis to calculate inaccurate values. Is my doubt correct? 

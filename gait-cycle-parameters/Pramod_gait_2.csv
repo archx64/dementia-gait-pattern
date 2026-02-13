@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Pramod,Left,Cadence,134.4412489058382,steps/min
+Pramod,Left,Walking Speed,0.7894321030210182,m/s
+Pramod,Left,Stride Time,1.0030769230769232,s
+Pramod,Left,Step Time,0.42800000000000005,s
+Pramod,Left,Opposite Foot Off,35.4523000823951,%
+Pramod,Left,Opposite Foot Contact,40.05410123191163,%
+Pramod,Left,Foot Off,34.5768379693329,%
+Pramod,Left,Single Support,0.9813996832852965,%
+Pramod,Left,Double Support,22.614121510673233,%
+Pramod,Left,Stride Length,76.95178315564856,cm
+Pramod,Left,Step Length,39.530732329760134,cm
+Pramod,Left,Step Width,15.901426028386664,cm
+Pramod,Left,Limp Index,0.7814393939393938,nan
+Pramod,Right,Cadence,141.84295967190704,steps/min
+Pramod,Right,Walking Speed,0.6058598375495797,m/s
+Pramod,Right,Stride Time,1.1127272727272728,s
+Pramod,Right,Step Time,0.4444444444444444,s
+Pramod,Right,Opposite Foot Off,53.783521303258134,%
+Pramod,Right,Opposite Foot Contact,49.0219298245614,%
+Pramod,Right,Foot Off,56.73196881091618,%
+Pramod,Right,Single Support,-7.5559210526315805,%
+Pramod,Right,Double Support,60.12938596491228,%
+Pramod,Right,Stride Length,71.11446145291069,cm
+Pramod,Right,Step Length,75.84740486261386,cm
+Pramod,Right,Step Width,20.348536356405035,cm
+Pramod,Right,Limp Index,4.57193725096538,nan

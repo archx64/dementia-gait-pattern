@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Dr.Mongkol,Left,Cadence,154.43316395164592,steps/min
+Dr.Mongkol,Left,Walking Speed,1.3696134553242794,m/s
+Dr.Mongkol,Left,Stride Time,0.9285714285714285,s
+Dr.Mongkol,Left,Step Time,0.356,s
+Dr.Mongkol,Left,Opposite Foot Off,37.18743922780794,%
+Dr.Mongkol,Left,Opposite Foot Contact,36.774422452317,%
+Dr.Mongkol,Left,Foot Off,36.003778540525616,%
+Dr.Mongkol,Left,Single Support,-6.416620619713327,%
+Dr.Mongkol,Left,Double Support,38.11498298151247,%
+Dr.Mongkol,Left,Stride Length,120.38907749595445,cm
+Dr.Mongkol,Left,Step Length,54.47787704475286,cm
+Dr.Mongkol,Left,Step Width,17.395091251965606,cm
+Dr.Mongkol,Left,Limp Index,0.8501538876538876,nan
+Dr.Mongkol,Right,Cadence,149.22000456818506,steps/min
+Dr.Mongkol,Right,Walking Speed,0.990347138451133,m/s
+Dr.Mongkol,Right,Stride Time,0.9857142857142857,s
+Dr.Mongkol,Right,Step Time,0.4872727272727273,s
+Dr.Mongkol,Right,Opposite Foot Off,40.28413889115835,%
+Dr.Mongkol,Right,Opposite Foot Contact,52.163929309483756,%
+Dr.Mongkol,Right,Foot Off,52.56583475169027,%
+Dr.Mongkol,Right,Single Support,21.972032407880754,%
+Dr.Mongkol,Right,Double Support,22.81580511185221,%
+Dr.Mongkol,Right,Stride Length,92.91461700725061,cm
+Dr.Mongkol,Right,Step Length,72.82741711534302,cm
+Dr.Mongkol,Right,Step Width,13.91545207965719,cm
+Dr.Mongkol,Right,Limp Index,5.220292249257267,nan

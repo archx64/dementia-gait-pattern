@@ -1,0 +1,27 @@
+Subject,Context,Name,Value,Units
+Kaung,Left,Cadence,158.7783283649988,steps/min
+Kaung,Left,Walking Speed,1.3441173195844882,m/s
+Kaung,Left,Stride Time,0.8171428571428573,s
+Kaung,Left,Step Time,0.4760000000000001,s
+Kaung,Left,Opposite Foot Off,33.242394523859055,%
+Kaung,Left,Opposite Foot Contact,53.358238110097375,%
+Kaung,Left,Foot Off,38.45611301360729,%
+Kaung,Left,Single Support,21.702830445679414,%
+Kaung,Left,Double Support,22.130734444807672,%
+Kaung,Left,Stride Length,113.1523640604354,cm
+Kaung,Left,Step Length,56.68617679509469,cm
+Kaung,Left,Step Width,22.107029618916865,cm
+Kaung,Left,Limp Index,1.1600876243639404,nan
+Kaung,Right,Cadence,126.43143095604894,steps/min
+Kaung,Right,Walking Speed,1.6493209078100055,m/s
+Kaung,Right,Stride Time,1.0933333333333333,s
+Kaung,Right,Step Time,0.4311111111111111,s
+Kaung,Right,Opposite Foot Off,29.087412587412587,%
+Kaung,Right,Opposite Foot Contact,37.71911705358225,%
+Kaung,Right,Foot Off,20.965370365200588,%
+Kaung,Right,Single Support,3.851048951048952,%
+Kaung,Right,Double Support,20.501631701631702,%
+Kaung,Right,Stride Length,142.18684236106407,cm
+Kaung,Right,Step Length,70.68207312717082,cm
+Kaung,Right,Step Width,26.99839627596068,cm
+Kaung,Right,Limp Index,0.30897553185134885,nan
