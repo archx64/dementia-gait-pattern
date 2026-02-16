@@ -11,4 +11,5 @@ calibration_4_cam/
 calibration_3_cam/
 blender_output/
 new_calibration_data/
+prompts/
 git_push.sh
