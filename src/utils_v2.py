@@ -1,5 +1,5 @@
 import os, cv2, warnings, math, itertools
-import numpy as np
+import numpy as np, pandas as pd
 from colorama import Back, Fore, Style, init
 
 warnings.filterwarnings("ignore")
@@ -89,8 +89,6 @@ CONFIG_PATH = os.path.join(
     LIB_DIR, "mmpose/configs/wholebody_2d_keypoint/rtmpose/cocktail14"
 )
 WEIGHT_PATH = os.path.join(LIB_DIR, "mmpose_weights")
-
-TILT_CORRECTION_ANGLE = -12
 
 SKELETON = [
     # --- Body (Standard COCO) ---
@@ -618,52 +616,72 @@ class CoordinateAligner:
         self.R_fix = np.eye(3)
         self.is_calibrated = False
 
-    def fit_floor_plane(self, feet_points_history):
+    def calibrate_floor_pca(self, feet_points_history):
         """
-        Uses SVD to fit a plane to the collection of feet points (N, 3).
-        Calculates rotation matrix to align floor normal with Y-axis (0, 1, 0).
+        Docstring for calibrate_floor_pca
+
+        :param self: Description
+        :param feet_points_history: Description
         """
-        points = np.array(feet_points_history)
-        points = points[~np.isnan(points).any(axis=1)]  # remove NaNs
 
-        if len(points) < 10:
-            print(WARNING + "Not enough points to calibrate floor. Using Identity.")
-            return
+        data = np.array([p for frame in feet_points_history for p in frame])
 
-        # 1. Centroid
-        centroid = np.mean(points, axis=0)
+        data = data[~np.isnan(data).any(axis=1)]
 
-        # 2. SVD
-        u, s, vh = np.linalg.svd(points - centroid)
-        normal = vh[2, :]  # The normal vector of the fitted plane
+        if len(data) < 10:
+            print(WARNING + "not enough points to calibrate floor. Using identity")
+            return 0
 
-        # Ensure normal points UP (OpenCV Y is Down, but we want 'Height' to be Y)
-        # We will rotate so the floor normal becomes (0, -1, 0) in OpenCV coords,
-        # making -Y the "Up" direction for analysis later.
-        # OR simpler: We rotate so floor normal becomes (0, 1, 0) and then treat Y as up.
+        centroid = np.mean(data, axis=0)
+        centered = data - centroid
 
-        target_normal = np.array([0, 1, 0])  # Target Y-up
+        u, s, vh = np.linalg.svd(centered)
+        normal = vh[2, :]  # shape (3,)
 
-        # Check direction
-        if np.dot(normal, target_normal) < 0:
+        target = np.array([0, -1, 0])
+
+        if np.dot(normal, target) < 0:
             normal = -normal
 
-        # 3. Compute Rotation Matrix (Rodrigues)
-        v = np.cross(normal, target_normal)
-        c = np.dot(normal, target_normal)
+        v = np.cross(normal, target)
+        c = np.cross(normal, target)
         s = np.linalg.norm(v)
 
-        if s < 1e-6:
+        if s == 0:
             self.R_fix = np.eye(3)
         else:
             kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
             self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
 
         self.is_calibrated = True
-        print(SUCCESS + f"Floor calibrated. Normal: {normal}")
+        print(SUCCESS + "floor calibrated via PCA")
+        return 0
 
     def align(self, pts_3d):
         if not self.is_calibrated:
             return pts_3d
-        # Apply rotation (pts @ R.T)
         return pts_3d @ self.R_fix.T
+
+
+def interpolate_skeleton(skeleton_history):
+    '''
+    interpolates missing values (nan) in the skeleton history.
+    skeleton_history: shape (num_frames, num_joints, 3)
+    '''
+    
+    if len(skeleton_history) == 0:
+        return skeleton_history
+    
+    arr = np.array(skeleton_history)
+    n_frames, n_joints, n_dims = arr.shape
+
+    # reshape to (frames, joints*dims) for dataframe interpolation
+    flat = arr.reshape(n_frames, -1)
+    df = pd.DataFrame(flat)
+
+    # linear interpolation
+    df = df.interpolate(method='Linear', limit_direction='both', axis=0)
+
+    # reshape back
+    filled = df.values.reshape(n_frames, n_joints, n_dims)
+    return filled

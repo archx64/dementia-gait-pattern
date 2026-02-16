@@ -171,21 +171,21 @@ NAMING_PATTERN = "Joint_{}"
 def setup_render_settings(output_path, num_frames):
     scene = bpy.context.scene
     
-    # Set Resolution
+    # set resolution
     scene.render.resolution_x = 1920
     scene.render.resolution_y = 1080
     
-    # Set FPS
+    # set fps
     scene.render.fps = 14
     
-    # Set Length
+    # set length
     scene.frame_start = 0
     scene.frame_end = num_frames
     
-    # Set Output Path
+    # set output path
     scene.render.filepath = output_path
     
-    # Set Format to MP4 (H.264)
+    # set format to mp4 h264
     scene.render.image_settings.file_format = 'FFMPEG'
     scene.render.ffmpeg.format = 'MPEG4'
     scene.render.ffmpeg.codec = 'H264'
@@ -198,7 +198,7 @@ def setup_render_settings(output_path, num_frames):
 # bpy.ops.render.render(animation=True) # Uncomment to auto-render
 
 def create_skeleton_viz():
-    # 1. Remove old collection if it exists (Clean Up)
+    # remove old collection if it exists
     if "SkeletonCollection" in bpy.data.collections:
         coll = bpy.data.collections["SkeletonCollection"]
         for obj in coll.objects:
@@ -208,7 +208,7 @@ def create_skeleton_viz():
     collection = bpy.data.collections.new("SkeletonCollection")
     bpy.context.scene.collection.children.link(collection)
     
-    # 2. Create Spheres for all 23 joints (Set Up)
+    # create spheres for all 23 keyjoints
     spheres = []
     for i in range(NUM_JOINTS):
         bpy.ops.mesh.primitive_uv_sphere_add(radius=0.01 * SCALE)
@@ -224,7 +224,7 @@ def create_skeleton_viz():
         
     print(f"Reading CSV from {CSV_PATH}...")
     
-    # 3. Read CSV and Keyframe (Animation)
+    # read csv, animate keyframes
     with open(CSV_PATH, 'r') as f:
         reader = csv.reader(f)
         header = next(reader) 
