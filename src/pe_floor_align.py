@@ -4,9 +4,11 @@ from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
 
 # configuration
-from utils import (
+from src.utils_v2 import (
     INFO,
     ERROR,
+    SUCCESS,
+    WARNING,
     VIDEO_PATHS,
     CONFIG_PATH,
     WEIGHT_PATH,
@@ -14,17 +16,20 @@ from utils import (
     CALIBRATION_FILE,
     FPS_ANALYSIS,
     SKELETON_SMOOTHING,
+    INTERPOLATE_MISSING,
     SkeletonSmoother,
     PersonSelector,
     MultiviewTriangulator,
-    CoordinateAligner
+    CoordinateAligner,  # Ensure the class above is saved in utils_v2
+    interpolate_skeleton,
 )
 
 # rtmw-x whole body model
 MODEL_CONFIG = "rtmw-x_8xb320-270e_cocktail14-384x288.py"
 MODEL_CHECKPOINT = "rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth"
 
-CONFIDENCE_THR = 0.4  
+CONFIDENCE_THR = 0.4
+
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -43,8 +48,7 @@ def main():
         return
 
     triangulator = MultiviewTriangulator(CALIBRATION_FILE, VIDEO_PATHS)
-    aligner = CoordinateAligner()
-    
+
     # initialization
     frames_0 = []
     for c in caps:
@@ -62,22 +66,9 @@ def main():
     target_idx = selector.select_person(frames_0[0], res_0[0])
 
     # store ALL keypoints for matching
-    ref_kpts = res_0[0][target_idx]["keypoints"]  
+    ref_kpts = res_0[0][target_idx]["keypoints"]
     num_joints = len(ref_kpts)
     print(INFO + f"Detected {num_joints} keypoints from model.")
-
-    # initialize Smoother with all joints
-    smoother = SkeletonSmoother(num_joints=num_joints, fps=FPS_ANALYSIS)
-
-    # output CSV Header for all joints
-    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
-    f_csv = open(OUTPUT_CSV, "w", newline="")
-    writer = csv.writer(f_csv)
-    header = ["frame_idx"]
-
-    for i in range(num_joints):  
-        header.extend([f"j{i}_x", f"j{i}_y", f"j{i}_z"])
-    writer.writerow(header)
 
     indices = {0: target_idx}
     prev_centroids = {}
@@ -95,17 +86,18 @@ def main():
         prev_centroids[i] = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
 
     # processing loop start
-    print(INFO + "Starting Robust Processing...")
-    
-    # Calibration Phase Storage
-    calibration_frames = 100
-    # calibration_frames = 50
-    calibration_points = []
-    
+    print(INFO + "Starting processing loop")
+    raw_3d_history = []
+
     frame_idx = 0
+
+    # Setup Visualization
     plt.ion()
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection="3d")
+
+    # View initialization (Looking from side/top)
+    ax.view_init(elev=20, azim=45)
 
     while True:
         frames = [c.read()[1] for c in caps]
@@ -119,7 +111,7 @@ def main():
             all_preds.append(r["predictions"][0])
 
         current_indices = {}
-        pts_3d_frame = np.zeros((num_joints, 3))
+        pts_3d_frame = np.full((num_joints, 3), np.nan)
 
         # tracking centroid distance
         for i, preds in enumerate(all_preds):
@@ -157,59 +149,113 @@ def main():
 
             pts_3d_frame[j] = triangulator.triangulate_one_point(views)
 
-        # --- AUTO CALIBRATION LOGIC ---
-        if frame_idx < calibration_frames:
-            # Collect Heel points (19, 22) and Toes (17, 20)
-            feet = pts_3d_frame[[19, 22, 17, 20]]
-            for pt in feet:
-                if not np.isnan(pt[0]):
-                    calibration_points.append(pt)
-        
-        elif frame_idx == calibration_frames:
-            # Run alignment once
-            print(INFO + f"Calibrating floor using {len(calibration_points)} points...")
-            aligner.fit_floor_plane(calibration_points)
-        
-        # Apply alignment
-        pts_3d_frame = aligner.align(pts_3d_frame)
-        
-        if SKELETON_SMOOTHING:
-            pts_3d_frame = smoother.update(pts_3d_frame)
+        raw_3d_history.append(pts_3d_frame)
 
-        # save and visualize
-        row = [frame_idx]
-        for p in pts_3d_frame:
+        if frame_idx % 10 == 0:
+            print(f"captured frame {frame_idx}...", end="\r")
+
+        frame_idx += 1
+
+    print(SUCCESS + f"\ncaptured {len(raw_3d_history)} frames")
+    print(INFO + "start post-processing...")
+
+    # interpolation
+    if INTERPOLATE_MISSING:
+        print(INFO + "applying linear interpolation for missing points...")
+        raw_data = np.array(raw_3d_history)
+        processed_data = interpolate_skeleton(raw_data)
+    else:
+        print(WARNING + "skipping interpolation, using raw data...")
+        processed_data = np.array(raw_3d_history)
+
+    # --- ALIGNMENT PHASE ---
+    aligner = CoordinateAligner()
+    # Indices: L_BigToe(17), L_Heel(19), R_BigToe(20), R_Heel(22)
+    feet_indices = [17, 19, 20, 22]
+
+    # Collect feet points for calibration
+    feet_history = []
+    # Use first 50 frames or all frames if video is short
+    limit = min(50, len(processed_data))
+    for f in range(limit):
+        pts = processed_data[f][feet_indices]
+        feet_history.append(pts)
+
+    # Calibrate using the ROBUST class
+    aligner.calibrate_floor_pca(feet_history)
+
+    smoother = SkeletonSmoother(num_joints=num_joints, fps=FPS_ANALYSIS)
+    final_data = []
+
+    print(INFO + "aligning and smoothing...")
+
+    for i, frame in enumerate(processed_data):
+        aligned = aligner.align(frame)
+
+        if SKELETON_SMOOTHING:
+            smoothed = smoother.update(aligned)
+        else:
+            smoothed = aligned
+
+        final_data.append(smoothed)
+
+        # Visualization
+        if i % 2 == 0:  # Visualize every 2nd frame
+            ax.cla()
+            valid = smoothed[~np.isnan(smoothed[:, 0])]
+
+            if len(valid) > 0:
+                # --- VISUALIZATION MAPPING ---
+                # X axis = valid[:, 0]
+                # Y axis (Depth) = valid[:, 2]
+                # Z axis (Height) = -valid[:, 1] (Because OpenCV Y is Down)
+
+                ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2)
+
+                # Draw connections for better skeleton visibility (Optional)
+                # But simple scatter is enough to verify floor
+
+                # Axis Limits (Adjust based on your room size)
+                # Assuming calibrated: Y is Up/Down.
+                ax.set_xlim(-2, 2)  # Side to side (Meters)
+                ax.set_ylim(-1, 5)  # Depth (Meters)
+                ax.set_zlim(0, 2)  # Height (Meters) - Floor is 0
+
+                ax.set_xlabel("X (Width)")
+                ax.set_ylabel("Z (Depth)")
+                ax.set_zlabel("Y (Height)")
+                ax.set_title(f"Aligned Frame {i}")
+
+            plt.pause(0.001)
+
+    # Save to CSV
+    os.makedirs(os.path.dirname(OUTPUT_CSV), exist_ok=True)
+    f_csv = open(OUTPUT_CSV, "w", newline="")
+    writer = csv.writer(f_csv)
+
+    header = ["frame_idx"]
+    for i in range(num_joints):
+        header.extend([f"j{i}_x", f"j{i}_y", f"j{i}_z"])
+    writer.writerow(header)
+
+    for idx, frame in enumerate(final_data):
+        row = [idx]
+        for p in frame:
             if np.isnan(p[0]):
                 row.extend(["", "", ""])
             else:
                 row.extend([f"{p[0]:.4f}", f"{p[1]:.4f}", f"{p[2]:.4f}"])
         writer.writerow(row)
 
-        # Visualization
-        if frame_idx % 2 == 0:
-            ax.cla()
-            valid = pts_3d_frame[~np.isnan(pts_3d_frame[:, 0])]
-            if len(valid) > 0:
-                # Swapped Y and Z for matplotlib visualization to look intuitive
-                # In aligner we set Y as UP, so for plot Z is UP.
-                ax.scatter(valid[:, 0], valid[:, 2], valid[:, 1], c="red", s=2) 
-                ax.set_xlim(-2, 4)
-                ax.set_ylim(-2, 4)
-                ax.set_zlim(-2, 2)
-                ax.set_xlabel('X')
-                ax.set_ylabel('Depth (Z)')
-                ax.set_zlabel('Height (Y)')
-                ax.set_title(f"Aligned Frame {frame_idx}")
-            plt.pause(0.001)
-            cv2.imshow("Main View", cv2.resize(frames[0], (1280, 720)))
-            if cv2.waitKey(1) == 27:
-                break
-
-        frame_idx += 1
-
     f_csv.close()
+
+    # Keep plot open for a moment
+    print(SUCCESS + f"File Saved: {OUTPUT_CSV}")
+    print(INFO + "Closing in 3 seconds...")
+    plt.pause(3)
     cv2.destroyAllWindows()
-    print(INFO + f"Processing Complete. Data saved to {OUTPUT_CSV}")
+    plt.close()
+
 
 if __name__ == "__main__":
     main()

@@ -1,100 +1,82 @@
 import os, numpy as np, pandas as pd
 from scipy.signal import butter, filtfilt, find_peaks
-from scipy.interpolate import CubicSpline
-from utils import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME, ROUND, INFO, DEBUG
+from src.utils_v2 import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME, ROUND, INFO, DEBUG
 
 class GaitAnalyzer:
-    def __init__(self, csv_path, original_fps, target_fps=100, height_axis="y"):
-        self.original_fps = original_fps
-        self.target_fps = target_fps  # We will upsample to this
+    def __init__(self, csv_path, fps, height_axis="y", up_direction=-1):
+        """
+        height_axis="y": In Computer Vision (OpenCV), Y is the vertical axis.
+        up_direction=-1: In OpenCV, Y increases downwards. So 'Up' is negative.
+        """
+        self.fps = fps
+        self.dt = 1 / fps
         self.height_axis = height_axis.lower()
+        self.up_dir = up_direction
 
-        # load and preprocess
-        raw_df = pd.read_csv(csv_path)
-        self.df = self.upsample_data(raw_df)
-        
-        self.fps = target_fps # Analysis now runs at 100Hz
-        
-        # wholebody keypoints mapping
+        print(INFO + f"Loading CSV: {csv_path}")
+        self.df = pd.read_csv(csv_path)
+
+        # mapping WholeBody Keypoints
         self.map = {
             "L_Heel_X": "j19_x", "L_Heel_Y": "j19_y", "L_Heel_Z": "j19_z",
             "R_Heel_X": "j22_x", "R_Heel_Y": "j22_y", "R_Heel_Z": "j22_z",
             "L_Toe_X": "j17_x",  "L_Toe_Y": "j17_y",  "L_Toe_Z": "j17_z",
             "R_Toe_X": "j20_x",  "R_Toe_Y": "j20_y",  "R_Toe_Z": "j20_z",
-            "L_Hip_X": "j11_x",  "L_Hip_Z": "j11_z",
-            "R_Hip_X": "j12_x",  "R_Hip_Z": "j12_z",
         }
 
+        # Handle empty/NaN values if interpolation was OFF
+        self.df.interpolate(method='linear', limit_direction='both', inplace=True)
         self.filter_data()
-        self.walking_vector = self.calculate_walking_vector()
-
-    def upsample_data(self, df):
-        """Upsamples dataframe from 25Hz to 100Hz using Cubic Spline"""
-        print(INFO + f"Upsampling data from {self.original_fps}Hz to {self.target_fps}Hz...")
-        
-        # Create old time axis
-        n_frames = len(df)
-        t_old = np.linspace(0, n_frames / self.original_fps, n_frames)
-        
-        # Create new time axis
-        n_new = int(n_frames * (self.target_fps / self.original_fps))
-        t_new = np.linspace(0, n_frames / self.original_fps, n_new)
-        
-        new_data = {}
-        for col in df.columns:
-            if col == "frame_idx":
-                continue
-                
-            # Handle missing data (interpolate NaNs first)
-            series = df[col].interpolate(method='linear', limit_direction='both')
-            
-            # Cubic Spline Interpolation
-            cs = CubicSpline(t_old, series.values)
-            new_data[col] = cs(t_new)
-            
-        new_df = pd.DataFrame(new_data)
-        new_df["time"] = t_new
-        return new_df
 
     def filter_data(self):
         # 4th order Butterworth, 6Hz cutoff
         b, a = butter(4, 6 / (0.5 * self.fps), btype="low")
         for col in self.df.columns:
             if col.startswith("j"):
+                # Fill remaining NaNs with 0 before filtering to prevent crash
+                self.df[col].fillna(0, inplace=True)
                 self.df[col] = filtfilt(b, a, self.df[col])
-
-    def calculate_walking_vector(self):
-        """Calculates the dominant direction of walking (2D vector in X-Z plane)"""
-        # Average hip position
-        hip_x = (self.df[self.map["L_Hip_X"]] + self.df[self.map["R_Hip_X"]]) / 2
-        hip_z = (self.df[self.map["L_Hip_Z"]] + self.df[self.map["R_Hip_Z"]]) / 2
-        
-        # Fit line to path (X vs Z)
-        # We use the middle 60% of data to avoid start/turn irregularities
-        n = len(self.df)
-        start, end = int(n*0.2), int(n*0.8)
-        
-        coeffs = np.polyfit(hip_z[start:end], hip_x[start:end], 1)
-        # Vector is [dx, dz]. Since x = mz + c, dx = m, dz = 1
-        vec = np.array([coeffs[0], 1.0]) 
-        vec = vec / np.linalg.norm(vec) # Normalize
-        
-        print(INFO + f"Walking Vector (X, Z): {vec}")
-        return vec
 
     def detect_events(self, side):
         prefix = side
-        # Use Y axis (Height) for heel strike detection
-        heel_h = self.df[self.map[f"{prefix}_Heel_{self.height_axis.upper()}"]].values
-        toe_h = self.df[self.map[f"{prefix}_Toe_{self.height_axis.upper()}"]].values
+        # Select the correct column based on height_axis (Y)
+        col_name = self.map[f"{prefix}_Heel_{self.height_axis.upper()}"]
+        heel_height = self.df[col_name].values
+        
+        col_toe = self.map[f"{prefix}_Toe_{self.height_axis.upper()}"]
+        toe_height = self.df[col_toe].values
 
-        # Heel Strike: Local Minima in Height (Foot touching floor)
-        # Since 'Y' is up in our aligned data, minima = floor contact
-        strikes, _ = find_peaks(-heel_h, distance=self.fps * 0.5, prominence=0.005)
+        # Heel Strike: Local Minima of Height (if Y is Up)
+        # Since Y is Down (OpenCV), 'Up' is -Y.
+        # Ground is max Y (approx). 
+        # Strike is when Y is maximized (lowest point in space, highest value in OpenCV coords)
+        
+        # If up_dir = -1 (Y is Down):
+        # We want points where Y is Highest (Max value). 
+        # find_peaks finds Maxima. So we pass 'heel_height' directly.
+        
+        if self.up_dir == -1:
+            strike_signal = heel_height # Find maxima (ground contact)
+        else:
+            strike_signal = -heel_height # Find maxima (if Y was Up)
 
-        # Toe Off: Max upward velocity of Toe
-        vel_h = np.gradient(toe_h)
-        offs, _ = find_peaks(vel_h, height=0.005, distance=self.fps * 0.5)
+        # Distance: Minimum frames between steps (0.5s * FPS)
+        strikes, _ = find_peaks(strike_signal, distance=self.fps * 0.4, prominence=0.02)
+
+        # Toe Off: Max Upward Velocity
+        vel_height = np.gradient(toe_height)
+        
+        # We want max velocity going UP.
+        # If Y is down, UP velocity is negative gradient.
+        # So we look for minimum gradient (most negative).
+        # find_peaks finds Maxima. So we invert velocity.
+        
+        if self.up_dir == -1:
+            off_signal = -vel_height
+        else:
+            off_signal = vel_height
+            
+        offs, _ = find_peaks(off_signal, height=0.01, distance=self.fps * 0.4)
 
         return np.sort(strikes), np.sort(offs)
 
@@ -102,7 +84,12 @@ class GaitAnalyzer:
         if len(strikes) < 2:
             return None
 
-        metrics = {k: [] for k in ["Cadence", "WalkingSpeed", "StrideTime", "StepTime", "OppFootOff", "OppFootContact", "FootOff", "SingleSupport", "DoubleSupport", "StrideLen", "StepLen", "StepWidth", "LimpIndex"]}
+        metrics = {k: [] for k in [
+            "Cadence", "WalkingSpeed", "StrideTime", "StepTime",
+            "OppFootOff", "OppFootContact", "FootOff",
+            "SingleSupport", "DoubleSupport", "StrideLen",
+            "StepLen", "StepWidth", "LimpIndex"
+        ]}
 
         for i in range(len(strikes) - 1):
             start = strikes[i]
@@ -112,40 +99,42 @@ class GaitAnalyzer:
 
             if stride_dur == 0: continue
 
-            # --- SPATIAL METRICS (Projected onto Walking Vector) ---
-            
-            # Step Length (Distance between heels projected on walking path)
-            lx = self.df.iloc[start][self.map["L_Heel_X"]]
-            lz = self.df.iloc[start][self.map["L_Heel_Z"]]
-            rx = self.df.iloc[start][self.map["R_Heel_X"]]
-            rz = self.df.iloc[start][self.map["R_Heel_Z"]]
-            
-            delta_x = lx - rx
-            delta_z = lz - rz
-            
-            # Project vector(dx, dz) onto walking_vector
-            foot_vec = np.array([delta_x, delta_z])
-            step_len = abs(np.dot(foot_vec, self.walking_vector)) * 100 # cm
-            
-            # Step Width (Distance perpendicular to walking path)
-            # Perpendicular vector is (-z, x)
-            perp_vec = np.array([-self.walking_vector[1], self.walking_vector[0]])
-            step_width = abs(np.dot(foot_vec, perp_vec)) * 100 # cm
+            # Extract Coordinates
+            def get_pt(frame, name):
+                return np.array([
+                    self.df.iloc[frame][self.map[f"{name}_X"]],
+                    self.df.iloc[frame][self.map[f"{name}_Y"]],
+                    self.df.iloc[frame][self.map[f"{name}_Z"]]
+                ])
 
-            # Stride Length (Same foot displacement)
-            h_x_col, h_z_col = self.map[f"{side}_Heel_X"], self.map[f"{side}_Heel_Z"]
-            p1 = np.array([self.df.iloc[start][h_x_col], self.df.iloc[start][h_z_col]])
-            p2 = np.array([self.df.iloc[end][h_x_col], self.df.iloc[end][h_z_col]])
-            stride_vec = p2 - p1
-            stride_len = abs(np.dot(stride_vec, self.walking_vector)) * 100 # cm
+            l_start = get_pt(start, "L_Heel")
+            r_start = get_pt(start, "R_Heel")
+            l_end = get_pt(end, "L_Heel")
+            
+            # --- SPATIAL METRICS ---
+            # Stride Length: Distance traveled by SAME foot
+            # Use X (Side) and Z (Forward) for floor distance
+            p1 = get_pt(start, f"{side}_Heel")
+            p2 = get_pt(end, f"{side}_Heel")
+            
+            # Floor Distance (ignore Y height)
+            stride_len = np.sqrt((p2[0]-p1[0])**2 + (p2[2]-p1[2])**2) * 100 # m to cm
+
+            # Step Length: Z-Distance between HEELS at strike
+            # Note: This is an approximation. True step length is AP distance.
+            step_len = abs(l_start[2] - r_start[2]) * 100 # Z-diff
+            
+            # Step Width: X-Distance
+            step_width = abs(l_start[0] - r_start[0]) * 100
 
             # --- TEMPORAL METRICS ---
-            
-            # Own Foot Off
+            # own Foot Off
             valid_offs = offs[(offs > start) & (offs < end)]
-            foot_off_pct = ((valid_offs[0] - start) / stride_frames) * 100 if len(valid_offs) > 0 else np.nan
+            foot_off_pct = np.nan
+            if len(valid_offs) > 0:
+                foot_off_pct = ((valid_offs[0] - start) / stride_frames) * 100
 
-            # Opp Contact
+            # opp Contact
             valid_opp_s = opp_strikes[(opp_strikes > start) & (opp_strikes < end)]
             opp_con_pct = np.nan
             step_time = np.nan
@@ -153,20 +142,29 @@ class GaitAnalyzer:
                 opp_con_pct = ((valid_opp_s[0] - start) / stride_frames) * 100
                 step_time = (valid_opp_s[0] - start) / self.fps
 
-            # Opp Off
+            # opp Off
             valid_opp_o = opp_offs[(opp_offs > start) & (opp_offs < end)]
-            opp_off_pct = ((valid_opp_o[0] - start) / stride_frames) * 100 if len(valid_opp_o) > 0 else np.nan
+            opp_off_pct = np.nan
+            if len(valid_opp_o) > 0:
+                opp_off_pct = ((valid_opp_o[0] - start) / stride_frames) * 100
 
             # Derived
-            single_supp = (opp_con_pct - opp_off_pct) if (not np.isnan(opp_con_pct) and not np.isnan(opp_off_pct)) else np.nan
+            single_supp = np.nan
+            if not np.isnan(opp_con_pct) and not np.isnan(opp_off_pct):
+                single_supp = opp_con_pct - opp_off_pct
+            
             double_supp = np.nan
             if not np.isnan(foot_off_pct) and not np.isnan(opp_con_pct) and not np.isnan(opp_off_pct):
+                # Double Support = (0 to OppOff) + (OppCon to 100) ???
+                # Actually DS = (HS to OppTO) + (OppHS to TO)
+                # In % cycle: OppTO + (FootOff - OppCon)
                 double_supp = opp_off_pct + (foot_off_pct - opp_con_pct)
-            
+
             limp = np.nan
             if not np.isnan(foot_off_pct):
                 swing = 100 - foot_off_pct
-                if swing > 0: limp = foot_off_pct / swing
+                if swing > 0:
+                    limp = foot_off_pct / swing
 
             metrics["StrideTime"].append(stride_dur)
             metrics["StrideLen"].append(stride_len)
@@ -211,25 +209,30 @@ class GaitAnalyzer:
         def add_rows(res, ctx):
             if not res: return
             for k, name, unit in param_defs:
-                rows.append({"Subject": SUBJECT_NAME, "Context": ctx, "Name": name, "Value": res.get(k, 0), "Units": unit})
+                rows.append({
+                    "Subject": SUBJECT_NAME, "Context": ctx,
+                    "Name": name, "Value": res.get(k, 0), "Units": unit
+                })
 
         add_rows(l_res, "Left")
         add_rows(r_res, "Right")
-        return pd.DataFrame(rows)
+        
+        events_df = pd.DataFrame() # skipping events table generation for brevity
+        return pd.DataFrame(rows), events_df
 
 def main():
-    # Target FPS 100Hz is standard for Gait Labs
-    analyzer = GaitAnalyzer(OUTPUT_CSV, original_fps=FPS_ANALYSIS, target_fps=100, height_axis="y")
-    params_df = analyzer.generate_vicon_tables()
+    # Use Y axis for height, and -1 direction (Y increases down)
+    analyzer = GaitAnalyzer(OUTPUT_CSV, fps=FPS_ANALYSIS, height_axis="y", up_direction=-1)
+    params_df, _ = analyzer.generate_vicon_tables()
 
     print("\n# Gait Cycle Parameters")
-    print(params_df.to_markdown(index=False))
+    print(params_df.to_markdown(index=True))
 
     gait_out = "gait-cycle-parameters"
     os.makedirs(gait_out, exist_ok=True)
     save_path = os.path.join(gait_out, f"{SUBJECT_NAME}_gait_{ROUND}.csv")
     params_df.to_csv(save_path, index=False)
-    print(INFO + f'saved gait csv file to: {save_path}')
+    print(f"Saved: {save_path}")
 
 if __name__ == "__main__":
     main()

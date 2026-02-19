@@ -6,6 +6,7 @@ warnings.filterwarnings("ignore")
 
 SUBJECT_NAME = "Kaung"
 ROUND = 5
+INTERPOLATE_MISSING = True
 
 # ========== console colors ==========
 HEAD = Fore.LIGHTGREEN_EX + Back.BLACK + Style.NORMAL
@@ -65,9 +66,9 @@ VIDEO_PATHS = [
     os.path.join(
         INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab3.mp4"
     ),
-    # os.path.join(
-    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab4.mp4"
-    # ),
+    os.path.join(
+        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab4.mp4"
+    ),
 ]
 
 FPS_ANALYSIS = 25
@@ -618,33 +619,58 @@ class CoordinateAligner:
 
     def calibrate_floor_pca(self, feet_points_history):
         """
-        Docstring for calibrate_floor_pca
-
-        :param self: Description
-        :param feet_points_history: Description
+        Robust PCA Floor Calibration.
+        Prevents '90 degree wall' errors by enforcing the normal to be 
+        roughly vertical relative to the cameras.
         """
-
+        # Flatten data
         data = np.array([p for frame in feet_points_history for p in frame])
-
         data = data[~np.isnan(data).any(axis=1)]
 
         if len(data) < 10:
-            print(WARNING + "not enough points to calibrate floor. Using identity")
+            print(WARNING + "Not enough points to calibrate floor. Using identity.")
             return 0
 
+        # Centroid centering
         centroid = np.mean(data, axis=0)
         centered = data - centroid
 
+        # SVD
         u, s, vh = np.linalg.svd(centered)
-        normal = vh[2, :]  # shape (3,)
+        
+        # --- ROBUSTNESS FIX ---
+        # Instead of blindly taking vh[2, :] (smallest variance),
+        # we check which eigenvector is closest to the Y-axis (vertical).
+        # In OpenCV, Y is down, so we look for alignment with [0, 1, 0]
+        
+        target_vertical = np.array([0, 1, 0])
+        best_dot = -1
+        normal = vh[2, :] # Default to smallest variance
 
+        # Check all 3 principle components to see which one is "Up"
+        for i in range(3):
+            vec = vh[i, :]
+            # Dot product checks alignment magnitude (ignoring direction for now)
+            alignment = abs(np.dot(vec, target_vertical))
+            
+            # If this vector is more vertical than the others, and represents
+            # a dimension with relatively low variance (it should be the floor), pick it.
+            # However, usually checking alignment is enough for floor vs wall.
+            if alignment > best_dot:
+                best_dot = alignment
+                normal = vec
+
+        # Now we have the correct plane orientation, let's align it to [0, -1, 0]
+        # We want -Y to be UP (Standard 3D graphics) or align to -Y so Y is down.
+        # Let's align normal to [0, -1, 0] (Y-axis pointing UP in inverted OpenCV)
         target = np.array([0, -1, 0])
 
         if np.dot(normal, target) < 0:
             normal = -normal
 
+        # Calculate Rotation Matrix
         v = np.cross(normal, target)
-        c = np.cross(normal, target)
+        c = np.dot(normal, target)
         s = np.linalg.norm(v)
 
         if s == 0:
@@ -654,7 +680,7 @@ class CoordinateAligner:
             self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
 
         self.is_calibrated = True
-        print(SUCCESS + "floor calibrated via PCA")
+        print(SUCCESS + "Floor calibrated (Gravity Aware PCA).")
         return 0
 
     def align(self, pts_3d):
@@ -680,7 +706,7 @@ def interpolate_skeleton(skeleton_history):
     df = pd.DataFrame(flat)
 
     # linear interpolation
-    df = df.interpolate(method='Linear', limit_direction='both', axis=0)
+    df = df.interpolate(method='linear', limit_direction='both', axis=0)
 
     # reshape back
     filled = df.values.reshape(n_frames, n_joints, n_dims)
