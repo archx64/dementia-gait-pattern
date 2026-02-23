@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
 
 # configuration
-from src.utils_v2 import (
+from src.utils_floor_align import (
     INFO,
     ERROR,
     SUCCESS,
@@ -28,7 +28,10 @@ from src.utils_v2 import (
 MODEL_CONFIG = "rtmw-x_8xb320-270e_cocktail14-384x288.py"
 MODEL_CHECKPOINT = "rtmw-x_simcc-cocktail14_pt-ucoco_270e-384x288-f840f204_20231122.pth"
 
-CONFIDENCE_THR = 0.4
+# CONFIDENCE_THR = 0.4
+
+CONFIDENCE_THR = 0.6
+
 
 
 def main():

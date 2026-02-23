@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import os
-from src.utils_v2 import OUTPUT_CSV, FPS_ANALYSIS
+from src.utils_floor_align import OUTPUT_CSV, FPS_ANALYSIS
 
 # ================= CONFIGURATION =================
 # Path to your CSV file
@@ -13,9 +13,13 @@ from src.utils_v2 import OUTPUT_CSV, FPS_ANALYSIS
 FRAME_INTERVAL = 1000 / FPS_ANALYSIS  # 40ms = approx 25 FPS
 
 # Axis Limits (Adjust based on your room size/data range)
-X_LIMITS = (-2, 2)    # Width (meters)
-Y_LIMITS = (-1, 5)    # Depth (meters)
-Z_LIMITS = (0, 2)     # Height (meters)
+# X_LIMITS = (-2, 2)    # Width (meters)
+# Y_LIMITS = (-1, 5)    # Depth (meters)
+# Z_LIMITS = (0, 2)     # Height (meters)
+
+X_LIMITS = (-3, 3)    # Width (meters)
+Y_LIMITS = (6, 12)    # Depth (meters)
+Z_LIMITS = (0, 6)     # Height (meters)
 
 # Skeletal Connections (Standard COCO/WholeBody topology)
 # Connecting indices to form bones
@@ -63,6 +67,10 @@ def update(frame_idx, data, scat, lines, title_text):
     ys = current_frame[:, 2]  # Z from CSV becomes Y in Plot (Depth)
     zs = -current_frame[:, 1] # -Y from CSV becomes Z in Plot (Height)
     
+    # xs = current_frame[:, 0]
+    # ys = -current_frame[:, 1]
+    # zs = current_frame[:, 2]
+
     # Filter out NaNs for scatter
     valid_mask = ~np.isnan(xs)
     if np.any(valid_mask):
@@ -101,7 +109,7 @@ def main():
     ax = fig.add_subplot(111, projection='3d')
     
     # Initialize Scatter (Points)
-    scat = ax.scatter([], [], [], c='red', s=10)
+    scat = ax.scatter([], [], [], c='red', s=5)
     
     # Initialize Lines (Bones)
     lines = [ax.plot([], [], [], 'black', linewidth=1)[0] for _ in BONES]
