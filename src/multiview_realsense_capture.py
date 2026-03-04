@@ -1,7 +1,8 @@
 import os, time, datetime, threading, cv2
 import pyrealsense2 as rs
 import numpy as np  # added for grid placeholder logic
-from src.utils_floor_align import INFO, WARNING, ERROR, FPS_ANALYSIS, SUBJECT_NAME
+from src.utils_floor_align import INFO, WARNING, ERROR, FPS_ANALYSIS, SUBJECT_NAME, REALSENSE_IP
+from colorama import init
 
 # configuration
 CAMERA_SOURCES = [
@@ -15,6 +16,86 @@ BASE_DIR = "new_calibration_data"
 VIDEO_DIR = "synchronized_videos"
 
 WINDOW_NAME = "Multi-View Capture"
+
+init(autoreset=True)
+
+
+class RealsenseCamera:
+    def __init__(self, ip_address, id):
+        self.id = id
+        self.ip = ip_address
+        self.pipeline = rs.pipeline()
+        self.config = rs.config()
+
+        # enable RGB stream
+        # self.config.enable_stream(rs.stream.color, 1920, 1080, rs.format.bgr8, 25)
+
+        self.started = False
+        self.read_lock = threading.Lock()
+        self.frame = None
+        self.frame_id = 0
+
+    def start(self):
+        print(INFO + f"[realsense {self.id}] connecting to {self.ip} through switch...")
+
+        try:
+            # we use the config to resolve the device via the network
+            self.config.enable_device_from_file("")  # placeholder for some SDK versions
+
+            # standard way to force network device
+            # rs.net_device(self.ip)
+
+            # setup stream: D555 usually handles 1920x1080 @ 30fps well
+            self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+
+            self.pipeline.start(self.config)
+            self.started = True
+            self.thread = threading.Thread(target=self.update)
+            self.thread.daemon = True
+            self.thread.start()
+
+        except Exception as e:
+            print(ERROR + f"failed to connect to D555 at {self.ip}: {e}")
+
+        return self
+
+    def update(self):
+        while self.started:
+            try:
+                # use a 3 second timeout because network switches can have lag spikes
+                frames = self.pipeline.wait_for_frames(3000)
+                color_frame = frames.get_color_frame()
+                if not color_frame:
+                    continue
+
+                with self.read_lock:
+                    self.frame = np.asanyarray(color_frame.get_data())
+                    self.frame_id += 1
+
+            except Exception as e:
+                # if network drops, we don't want to crash the whole multi-camera capture
+                time.sleep(1)
+
+    def read(self):
+        with self.read_lock:
+            if self.frame is not None:
+                return True, self.frame.copy(), self.frame_id
+            return False, None, -1
+
+    def release(self):
+        self.started = False
+        if hasattr(self, "pipeline"):
+            self.pipeline.stop()
+
+    def get(self, prop):
+        if prop == cv2.CAP_PROP_FRAME_WIDTH:
+            return 1280
+        if prop == cv2.CAP_PROP_FRAME_HEIGHT:
+            return 720
+        return 0
+
+    def isOpened(self):
+        return True
 
 
 class ThreadedCamera:
@@ -103,10 +184,14 @@ def main():
 
     print(INFO + "starting threaded cameras...")
     caps = []
+
     for i, src in enumerate(CAMERA_SOURCES):
         cam = ThreadedCamera(src, i + 1).start()
         caps.append(cam)
         time.sleep(0.5)
+
+    rs_cam = RealsenseCamera(ip_address=REALSENSE_IP, id=num_cams + 1).start()
+    caps.append(rs_cam)
 
     if not all([c.isOpened() for c in caps]):
         print(ERROR + "camera failed to open")
@@ -155,7 +240,7 @@ def main():
                 for i, writer in enumerate(writers):
                     writer.write(current_frames[i])
 
-            # visualization, this shows 4 cameras 
+            # visualization, this shows 4 cameras
             # We skipped this heavy processing most of the time to keep FPS high
             loop_counter += 1
             if loop_counter % DISPLAY_EVERY_N_FRAMES == 0:

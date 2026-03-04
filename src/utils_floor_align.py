@@ -5,10 +5,16 @@ from colorama import Back, Fore, Style, init
 warnings.filterwarnings("ignore")
 
 # ========== quick access parameters for pose estimation ==========
-SUBJECT_NAME = "jetnipat"
+SUBJECT_NAME = "prom"
 ROUND = 2
-INTERPOLATE_MISSING = False
+INTERPOLATE_MISSING = True
 SKELETON_SMOOTHING = False
+ALIGNMENT_METHOD = "tilt"
+TILT_CORRECTION_ANGLE = -12
+
+# ========== intelrealsense ==========
+
+REALSENSE_IP = '192.168.11.55'
 
 # ========== console colors ==========
 HEAD = Fore.LIGHTGREEN_EX + Back.BLACK + Style.NORMAL
@@ -49,7 +55,8 @@ if TARGET_PAPER not in PAPER_CONFIGS:
     print(ERROR + f"you must select paper from {PAPER_CONFIGS}")
     exit()
 
-IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
+# IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
+IMAGES_DIR = 'new_calibration_data'
 # ========== calibration config end ==========
 
 
@@ -86,315 +93,14 @@ CALIBRATION_FILE = os.path.join(
 )
 
 MODEL_ALIAS = "rtmpose-l-wholebody"
+
 LIB_DIR = "/home/aicenter/Dev/lib"
+
 CONFIG_PATH = os.path.join(
     LIB_DIR, "mmpose/configs/wholebody_2d_keypoint/rtmpose/cocktail14"
 )
+
 WEIGHT_PATH = os.path.join(LIB_DIR, "mmpose_weights")
-
-SKELETON = [
-    # --- Body (Standard COCO) ---
-    # Head
-    (0, 1),
-    (0, 2),
-    (1, 3),
-    (2, 4),
-    # Torso
-    (5, 6),
-    (5, 11),
-    (6, 12),
-    (11, 12),
-    # Arms
-    (5, 7),
-    (7, 9),
-    (6, 8),
-    (8, 10),
-    # Legs
-    (11, 13),
-    (13, 15),
-    (12, 14),
-    (14, 16),
-    # --- Feet ---
-    # L_Ankle -> L_Heel -> L_BigToe -> L_SmallToe
-    (15, 19),
-    (19, 17),
-    (17, 18),
-    # R_Ankle -> R_Heel -> R_BigToe -> R_SmallToe
-    (16, 22),
-    (22, 20),
-    (20, 21),
-    # --- Face (Contours) ---
-    # Jawline
-    (23, 24),
-    (24, 25),
-    (25, 26),
-    (26, 27),
-    (27, 28),
-    (28, 29),
-    (29, 30),
-    (30, 31),
-    (31, 32),
-    (32, 33),
-    (33, 34),
-    (34, 35),
-    (35, 36),
-    (36, 37),
-    (37, 38),
-    (38, 39),
-    # Eyebrows
-    (40, 41),
-    (41, 42),
-    (42, 43),
-    (43, 44),
-    (45, 46),
-    (46, 47),
-    (47, 48),
-    (48, 49),
-    # Nose
-    (50, 51),
-    (51, 52),
-    (52, 53),
-    (54, 55),
-    (55, 56),
-    (56, 57),
-    (57, 58),
-    # Eyes
-    (59, 60),
-    (60, 61),
-    (61, 62),
-    (62, 63),
-    (63, 64),
-    (64, 59),
-    (65, 66),
-    (66, 67),
-    (67, 68),
-    (68, 69),
-    (69, 70),
-    (70, 65),
-    # Lips
-    (71, 72),
-    (72, 73),
-    (73, 74),
-    (74, 75),
-    (75, 76),
-    (76, 77),
-    (77, 78),
-    (78, 79),
-    (79, 80),
-    (80, 81),
-    (81, 82),
-    (82, 71),
-    (83, 84),
-    (84, 85),
-    (85, 86),
-    (86, 87),
-    (87, 88),
-    (88, 89),
-    (89, 90),
-    (90, 83),
-    # --- Left Hand ---
-    # Thumb
-    (91, 92),
-    (92, 93),
-    (93, 94),
-    (94, 95),
-    # Index
-    (91, 96),
-    (96, 97),
-    (97, 98),
-    (98, 99),
-    # Middle
-    (91, 100),
-    (100, 101),
-    (101, 102),
-    (102, 103),
-    # Ring
-    (91, 104),
-    (104, 105),
-    (105, 106),
-    (106, 107),
-    # Pinky
-    (91, 108),
-    (108, 109),
-    (109, 110),
-    (110, 111),
-    # --- Right Hand ---
-    # Thumb
-    (112, 113),
-    (113, 114),
-    (114, 115),
-    (115, 116),
-    # Index
-    (112, 117),
-    (117, 118),
-    (118, 119),
-    (119, 120),
-    # Middle
-    (112, 121),
-    (121, 122),
-    (122, 123),
-    (123, 124),
-    # Ring
-    (112, 125),
-    (125, 126),
-    (126, 127),
-    (127, 128),
-    # Pinky
-    (112, 129),
-    (129, 130),
-    (130, 131),
-    (131, 132),
-]
-
-keypoint_names = [
-    # --- Body (0-16) ---
-    "Nose",
-    "L_Eye",
-    "R_Eye",
-    "L_Ear",
-    "R_Ear",
-    "L_Shoulder",
-    "R_Shoulder",
-    "L_Elbow",
-    "R_Elbow",
-    "L_Wrist",
-    "R_Wrist",
-    "L_Hip",
-    "R_Hip",
-    "L_Knee",
-    "R_Knee",
-    "L_Ankle",
-    "R_Ankle",
-    # --- Feet (17-22) ---
-    "L_BigToe",
-    "L_SmallToe",
-    "L_Heel",
-    "R_BigToe",
-    "R_SmallToe",
-    "R_Heel",
-    # --- Face (23-90) ---
-    "Face_0",
-    "Face_1",
-    "Face_2",
-    "Face_3",
-    "Face_4",
-    "Face_5",
-    "Face_6",
-    "Face_7",
-    "Face_8",
-    "Face_9",
-    "Face_10",
-    "Face_11",
-    "Face_12",
-    "Face_13",
-    "Face_14",
-    "Face_15",
-    "Face_16",
-    # Left Eyebrow
-    "Face_17",
-    "Face_18",
-    "Face_19",
-    "Face_20",
-    "Face_21",
-    # Right Eyebrow
-    "Face_22",
-    "Face_23",
-    "Face_24",
-    "Face_25",
-    "Face_26",
-    # Nose Bridge
-    "Face_27",
-    "Face_28",
-    "Face_29",
-    "Face_30",
-    # Nose Bottom
-    "Face_31",
-    "Face_32",
-    "Face_33",
-    "Face_34",
-    "Face_35",
-    # Left Eye
-    "Face_36",
-    "Face_37",
-    "Face_38",
-    "Face_39",
-    "Face_40",
-    "Face_41",
-    # Right Eye
-    "Face_42",
-    "Face_43",
-    "Face_44",
-    "Face_45",
-    "Face_46",
-    "Face_47",
-    # Outer Lip
-    "Face_48",
-    "Face_49",
-    "Face_50",
-    "Face_51",
-    "Face_52",
-    "Face_53",
-    "Face_54",
-    "Face_55",
-    "Face_56",
-    "Face_57",
-    "Face_58",
-    "Face_59",
-    # Inner Lip
-    "Face_60",
-    "Face_61",
-    "Face_62",
-    "Face_63",
-    "Face_64",
-    "Face_65",
-    "Face_66",
-    "Face_67",
-    # --- Left Hand (91-111) ---
-    "L_Wrist_Hand",
-    "L_Thumb_1",
-    "L_Thumb_2",
-    "L_Thumb_3",
-    "L_Thumb_4",
-    "L_Index_1",
-    "L_Index_2",
-    "L_Index_3",
-    "L_Index_4",
-    "L_Middle_1",
-    "L_Middle_2",
-    "L_Middle_3",
-    "L_Middle_4",
-    "L_Ring_1",
-    "L_Ring_2",
-    "L_Ring_3",
-    "L_Ring_4",
-    "L_Pinky_1",
-    "L_Pinky_2",
-    "L_Pinky_3",
-    "L_Pinky_4",
-    # --- Right Hand (112-132) ---
-    "R_Wrist_Hand",
-    "R_Thumb_1",
-    "R_Thumb_2",
-    "R_Thumb_3",
-    "R_Thumb_4",
-    "R_Index_1",
-    "R_Index_2",
-    "R_Index_3",
-    "R_Index_4",
-    "R_Middle_1",
-    "R_Middle_2",
-    "R_Middle_3",
-    "R_Middle_4",
-    "R_Ring_1",
-    "R_Ring_2",
-    "R_Ring_3",
-    "R_Ring_4",
-    "R_Pinky_1",
-    "R_Pinky_2",
-    "R_Pinky_3",
-    "R_Pinky_4",
-]
-
 
 # ========== pose estimation end ==========
 
@@ -404,7 +110,6 @@ keypoint_names = [
 GAITANALYSIS_CSV = os.path.join(OUTPUT_DIR, "gait_analysis.csv")
 
 SCORE_THRESHOLD = 0.1
-
 
 header = ["frame_idx", "total_distance_m"]
 
@@ -533,7 +238,7 @@ class SkeletonSmoother:
         for i in range(len(pts_3d)):
             x, y, z = pts_3d[i]
             if np.isnan(x):
-                # Reset filter if tracking is lost
+                # reset filter if tracking is lost
                 self.filters[i] = (
                     OneEuroFilter(min_cutoff=1, beta=0.2, fps=self.filters[i][0].fps),
                     OneEuroFilter(min_cutoff=1, beta=0.2, fps=self.filters[i][0].fps),
@@ -647,73 +352,17 @@ class CoordinateAligner:
             return pts_3d
         return pts_3d @ self.R_fix.T
 
-    # def calibrate_floor_pca(self, feet_points_history):
-    #     """
-    #     Robust PCA Floor Calibration.
-    #     Filters out the 'swing' phase of the feet and only uses the 'stance' 
-    #     phase (planted feet) to prevent diagonal wall rolling.
-    #     """
-    #     # Flatten data and remove NaNs
-    #     data = np.array([p for frame in feet_points_history for p in frame])
-    #     data = data[~np.isnan(data).any(axis=1)]
+    def calibrate_tilt(self, angle_degrees):
+        """Applies hard coded rotation around X-axis to correct camera tilt"""
+        theta = np.radians(angle_degrees)
+        c, s = np.cos(theta), np.sin(theta)
 
-    #     if len(data) < 10:
-    #         print(WARNING + "Not enough points to calibrate floor. Using identity.")
-    #         return 0
+        # Rotation matrix around X-axis
+        self.R_fix = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
 
-    #     # --- THE FIX: ISOLATE PLANTED FEET ---
-    #     # In OpenCV, Y increases DOWNWARDS. 
-    #     # Therefore, the feet physically touching the floor have the HIGHEST Y values.
-    #     y_coords = data[:, 1]
-        
-    #     # Find the threshold for the bottom 30% of feet (the planted ones)
-    #     floor_threshold = np.percentile(y_coords, 70) 
-        
-    #     # Filter the data to only include points on the floor
-    #     floor_points = data[y_coords >= floor_threshold]
-
-    #     # Safety fallback if filtering leaves too few points
-    #     if len(floor_points) < 3:
-    #         floor_points = data 
-
-    #     # Centroid centering on the filtered floor points
-    #     centroid = np.mean(floor_points, axis=0)
-    #     centered = floor_points - centroid
-
-    #     # SVD
-    #     u, s, vh = np.linalg.svd(centered)
-        
-    #     # Find the vector closest to the vertical axis
-    #     target_vertical = np.array([0, 1, 0])
-    #     best_dot = -1
-    #     normal = vh[2, :] 
-
-    #     for i in range(3):
-    #         vec = vh[i, :]
-    #         alignment = abs(np.dot(vec, target_vertical))
-    #         if alignment > best_dot:
-    #             best_dot = alignment
-    #             normal = vec
-
-    #     # Align normal to point UP (-Y in inverted OpenCV)
-    #     target = np.array([0, -1, 0])
-    #     if np.dot(normal, target) < 0:
-    #         normal = -normal
-
-    #     # Calculate Rotation Matrix
-    #     v = np.cross(normal, target)
-    #     c = np.dot(normal, target)
-    #     s = np.linalg.norm(v)
-
-    #     if s == 0:
-    #         self.R_fix = np.eye(3)
-    #     else:
-    #         kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-    #         self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
-
-    #     self.is_calibrated = True
-    #     print(SUCCESS + "Floor calibrated (Planted Feet PCA).")
-    #     return 0
+        self.is_calibrated = True
+        print(INFO + f"Floor aligned using Fixed Tilt ({angle_degrees}°).")
+        return 0    
 
     def calibrate_floor_pca(self, feet_points_history):
         """
@@ -721,52 +370,51 @@ class CoordinateAligner:
         Prevents '90 degree wall' errors by enforcing the normal to be
         roughly vertical relative to the cameras.
         """
-        # Flatten data
+        # flatten data
         data = np.array([p for frame in feet_points_history for p in frame])
         data = data[~np.isnan(data).any(axis=1)]
 
         if len(data) < 10:
-            print(WARNING + "Not enough points to calibrate floor. Using identity.")
+            print(WARNING + "not enough points to calibrate floor. using identity.")
             return 0
 
-        # Centroid centering
+        # centroid centering
         centroid = np.mean(data, axis=0)
         centered = data - centroid
 
-        # SVD
-        u, s, vh = np.linalg.svd(centered)
+        # single value decomposition
+        u, s, vh = np.linalg.svd(centered)  # u, s, vh
 
-        # --- ROBUSTNESS FIX ---
-        # Instead of blindly taking vh[2, :] (smallest variance),
+        # instead of blindly taking vh[2, :] (smallest variance),
         # we check which eigenvector is closest to the Y-axis (vertical).
-        # In OpenCV, Y is down, so we look for alignment with [0, 1, 0]
+        # in OpenCV, Y is down, so we look for alignment with [0, 1, 0]
 
         target_vertical = np.array([0, 1, 0])
         best_dot = -1
-        normal = vh[2, :]  # Default to smallest variance
+        normal = vh[2, :]  # default to smallest variance
 
-        # Check all 3 principle components to see which one is "Up"
+        # check all 3 principle components to see which one is "Up"
         for i in range(3):
             vec = vh[i, :]
-            # Dot product checks alignment magnitude (ignoring direction for now)
+            # dot product checks alignment magnitude (ignoring direction for now)
             alignment = abs(np.dot(vec, target_vertical))
 
             # If this vector is more vertical than the others, and represents
             # a dimension with relatively low variance (it should be the floor), pick it.
-            # However, usually checking alignment is enough for floor vs wall.
+            # however, usually checking alignment is enough for floor vs wall.
             if alignment > best_dot:
                 best_dot = alignment
                 normal = vec
 
-        # Now we have the correct plane orientation, let's align it to [0, -1, 0]
-        # We want -Y to be UP (Standard 3D graphics) or align to -Y so Y is down.
-        # Let's align normal to [0, -1, 0] (Y-axis pointing UP in inverted OpenCV)
+        # now we have the correct plane orientation, let's align it to [0, -1, 0]
+        # we want -Y to be UP (Standard 3D graphics) or align to -Y so Y is down.
+        # let's align normal to [0, -1, 0] (Y-axis pointing UP in inverted OpenCV)
         target = np.array([0, -1, 0])
 
         if np.dot(normal, target) < 0:
             normal = -normal
 
-        # Calculate Rotation Matrix
+        # calculate Rotation Matrix
         v = np.cross(normal, target)
         c = np.dot(normal, target)
         s = np.linalg.norm(v)
@@ -778,5 +426,73 @@ class CoordinateAligner:
             self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
 
         self.is_calibrated = True
-        print(SUCCESS + "Floor calibrated (Gravity Aware PCA).")
+        print(SUCCESS + "floor calibrated (Gravity Aware PCA).")
         return 0
+
+    # def calibrate_floor_pca(self, feet_points_history):
+    #     """
+    #     Robust PCA Floor Calibration.
+    #     Filters out the 'swing' phase of the feet and only uses the 'stance'
+    #     phase (planted feet) to prevent diagonal wall rolling.
+    #     """
+    #     # flatten data and remove NaNs
+    #     data = np.array([p for frame in feet_points_history for p in frame])
+    #     data = data[~np.isnan(data).any(axis=1)]
+
+    #     if len(data) < 10:
+    #         print(WARNING + "not enough points to calibrate floor. using identity.")
+    #         return 0
+
+    #     # --- THE FIX: ISOLATE PLANTED FEET ---
+    #     # In OpenCV, Y increases DOWNWARDS.
+    #     # Therefore, the feet physically touching the floor have the HIGHEST Y values.
+    #     y_coords = data[:, 1]
+
+    #     # find the threshold for the bottom 30% of feet (the planted ones)
+    #     floor_threshold = np.percentile(y_coords, 70)
+
+    #     # filter the data to only include points on the floor
+    #     floor_points = data[y_coords >= floor_threshold]
+
+    #     # safety fallback if filtering leaves too few points
+    #     if len(floor_points) < 3:
+    #         floor_points = data
+
+    #     # centroid centering on the filtered floor points
+    #     centroid = np.mean(floor_points, axis=0)
+    #     centered = floor_points - centroid
+
+    #     # singular value decomposition
+    #     u, s, vh = np.linalg.svd(centered)
+
+    #     # find the vector closest to the vertical axis
+    #     target_vertical = np.array([0, 1, 0])
+    #     best_dot = -1
+    #     normal = vh[2, :]
+
+    #     for i in range(3):
+    #         vec = vh[i, :]
+    #         alignment = abs(np.dot(vec, target_vertical))
+    #         if alignment > best_dot:
+    #             best_dot = alignment
+    #             normal = vec
+
+    #     # align normal to point UP (-Y in inverted OpenCV)
+    #     target = np.array([0, -1, 0])
+    #     if np.dot(normal, target) < 0:
+    #         normal = -normal
+
+    #     # calculate rotation matrix
+    #     v = np.cross(normal, target)
+    #     c = np.dot(normal, target)
+    #     s = np.linalg.norm(v)
+
+    #     if s == 0:
+    #         self.R_fix = np.eye(3)
+    #     else:
+    #         kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    #         self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
+
+    #     self.is_calibrated = True
+    #     print(SUCCESS + "floor calibrated (Planted Feet PCA).")
+    #     return 0

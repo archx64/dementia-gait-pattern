@@ -17,10 +17,12 @@ from src.utils_floor_align import (
     FPS_ANALYSIS,
     SKELETON_SMOOTHING,
     INTERPOLATE_MISSING,
+    ALIGNMENT_METHOD,
+    TILT_CORRECTION_ANGLE,
     SkeletonSmoother,
     PersonSelector,
     MultiviewTriangulator,
-    CoordinateAligner,  # Ensure the class above is saved in utils_v2
+    CoordinateAligner, 
     interpolate_skeleton,
 )
 
@@ -173,19 +175,30 @@ def main():
 
     # --- ALIGNMENT PHASE ---
     aligner = CoordinateAligner()
-    # Indices: L_BigToe(17), L_Heel(19), R_BigToe(20), R_Heel(22)
-    feet_indices = [17, 19, 20, 22]
 
-    # Collect feet points for calibration
-    feet_history = []
-    # Use first 50 frames or all frames if video is short
-    limit = min(50, len(processed_data))
-    for f in range(limit):
-        pts = processed_data[f][feet_indices]
-        feet_history.append(pts)
+    if ALIGNMENT_METHOD.lower() == 'pca':
 
-    # Calibrate using the ROBUST class
-    aligner.calibrate_floor_pca(feet_history)
+        # Collect feet points for calibration
+        feet_history = list()
+
+        # Indices: L_BigToe(17), L_Heel(19), R_BigToe(20), R_Heel(22)
+        feet_indices = [17, 19, 20, 22]
+
+        # Use first 50 frames or all frames if video is short
+        limit = min(50, len(processed_data))
+        for f in range(limit):
+            pts = processed_data[f][feet_indices]
+            feet_history.append(pts)
+
+        # Calibrate using Coordinate Aligner class
+        aligner.calibrate_floor_pca(feet_history)
+
+    elif ALIGNMENT_METHOD.lower() == 'tilt':
+        aligner.calibrate_tilt(TILT_CORRECTION_ANGLE)
+    
+    else:
+        print(WARNING + F"selected alignment method {ALIGNMENT_METHOD} is not available. using raw coordinates.")
+        aligner.is_calibrated = True
 
     smoother = SkeletonSmoother(num_joints=num_joints, fps=FPS_ANALYSIS)
     final_data = []

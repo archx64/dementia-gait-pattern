@@ -2,8 +2,9 @@
 # import numpy as np
 import os, numpy as np, pandas as pd
 from scipy.signal import butter, filtfilt, find_peaks
-from utils import FPS_ANALYSIS, OUTPUT_CSV, SUBJECT_NAME, ROUND, INFO, DEBUG
+from src.utils import FPS_ANALYSIS, SUBJECT_NAME, ROUND, INFO, DEBUG#, OUTPUT_CSV
 
+OUTPUT_CSV = 'output/3.csv'
 
 class GaitAnalyzer:
     def __init__(self, csv_path, fps, height_axis="z", up_direction=1):

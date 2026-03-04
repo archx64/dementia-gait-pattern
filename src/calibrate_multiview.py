@@ -1,6 +1,6 @@
 import os, glob, cv2, json
 import numpy as np
-from utils import (
+from src.utils_floor_align import (
     SQUARES_X,
     SQUARES_Y,
     SQUARES_LENGTH,
@@ -12,7 +12,7 @@ from utils import (
     INFO,
     WARNING,
     CALIBRATION_FILE,
-    CAMERA_COUNT
+    CAMERA_COUNT,
 )
 
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
@@ -24,11 +24,9 @@ CAMERAS = [
     {
         "name": "cam1",
         "path": os.path.join(IMAGES_DIR, "cam1/*.jpg"),
-        "is_reference": True,
+        "is_reference": False,
     }
 ]
-
-# image_dirs = dict()
 
 for i in range(2, CAMERA_COUNT + 1):
     CAMERAS.append(
@@ -39,6 +37,14 @@ for i in range(2, CAMERA_COUNT + 1):
         }
     )
     # image_dirs[f"cam{i+1}"] = os.path.join(IMAGES_DIR, f"cam{i+1}/*.jpg")
+
+CAMERAS.append(
+    {
+        "name": "cam5",
+        "path": os.path.join(IMAGES_DIR, "cam5/*.jpg"),
+        "is_reference": True,
+    }
+)
 
 print(json.dumps(CAMERAS, indent=4))
 
@@ -184,6 +190,10 @@ def main():
         # print(DEBUG + f"keys in res['shape']: {res['shape'].keys()}")
 
         print(INFO + f"solving intrinsics for {name}")
+
+        if len(res_name["all_corners"]) == 0 or len(res_name["all_ids"]) == 0:
+            print(ERROR + f"not enough valid ChArUco corners found for {name}. Could not calibrate...")
+            exit()
 
         inputK = np.array([])
         inputD = np.array([])

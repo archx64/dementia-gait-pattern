@@ -71,12 +71,12 @@ def update(frame_idx, data, scat, lines, title_text):
     # ys = -current_frame[:, 1]
     # zs = current_frame[:, 2]
 
-    # Filter out NaNs for scatter
+    # filter out NaNs for scatter
     valid_mask = ~np.isnan(xs)
     if np.any(valid_mask):
         scat._offsets3d = (xs[valid_mask], ys[valid_mask], zs[valid_mask])
     
-    # 2. Update Lines (Bones)
+    # draw lines (bones)
     for line, (start, end) in zip(lines, BONES):
         if start < len(current_frame) and end < len(current_frame):
             p1 = current_frame[start]
