@@ -1,5 +1,4 @@
 import os, time, datetime, threading, cv2
-import pyrealsense2 as rs
 import numpy as np  # added for grid placeholder logic
 from src.utils_floor_align import INFO, WARNING, ERROR, FPS_ANALYSIS, SUBJECT_NAME
 
@@ -156,7 +155,7 @@ def main():
                     writer.write(current_frames[i])
 
             # visualization, this shows 4 cameras 
-            # We skipped this heavy processing most of the time to keep FPS high
+            # we skipped this heavy processing most of the time to keep FPS high
             loop_counter += 1
             if loop_counter % DISPLAY_EVERY_N_FRAMES == 0:
 

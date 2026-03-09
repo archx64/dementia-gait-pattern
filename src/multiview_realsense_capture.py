@@ -46,7 +46,7 @@ class RealsenseCamera:
             # rs.net_device(self.ip)
 
             # setup stream: D555 usually handles 1920x1080 @ 30fps well
-            self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
+            self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 25)
 
             self.pipeline.start(self.config)
             self.started = True
@@ -277,7 +277,7 @@ def main():
                     start_time = time.time()
                     loop_counter = 0
 
-                # status Overlays
+                # status
                 status_color = (0, 0, 255) if is_recording else (0, 255, 0)
                 status_text = "REC" if is_recording else "STBY"
 
@@ -305,13 +305,13 @@ def main():
 
                 cv2.imshow(WINDOW_NAME, combined)
 
-            # handle Keypress (Must be outside the if-statement to capture input)
+            # handle keypress, must be outside the if-statement to capture input
             key = cv2.waitKey(1) & 0xFF
 
             if key == ord("q"):
                 break
             elif key == ord("s"):
-                # save Logic
+                # save logic
                 for i, frame in enumerate(current_frames):
                     fname = f"frame_{photo_count:03d}.jpg"
                     cv2.imwrite(os.path.join(BASE_DIR, f"cam{i+1}", fname), frame)
