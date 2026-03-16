@@ -32,7 +32,7 @@ class GaitAnalyzer:
         # reset index so that iloc indexing in later functions still works seamlessly
         self.df = self.df.reset_index(drop=True)
 
-        # mapping WholeBody Keypoints
+        # mapping wholebody keypoints
         self.map = {
             "L_Heel_X": "j19_x", "L_Heel_Y": "j19_y", "L_Heel_Z": "j19_z",
             "R_Heel_X": "j22_x", "R_Heel_Y": "j22_y", "R_Heel_Z": "j22_z",
@@ -45,7 +45,7 @@ class GaitAnalyzer:
         self.filter_data()
 
     def filter_data(self):
-        # 4th order Butterworth, 6Hz cutoff
+        # 4th order butterworth, 6Hz cutoff
         b, a = butter(4, 6 / (0.5 * self.fps), btype="low")
         for col in self.df.columns:
             if col.startswith("j"):
@@ -67,7 +67,7 @@ class GaitAnalyzer:
         else:
             strike_signal = -heel_height # find maxima (if Y was Up)
 
-        # distance: Minimum frames between steps (0.5s * FPS)
+        # distance: minimum frames between steps (0.5s * FPS)
         strikes, _ = find_peaks(strike_signal, distance=self.fps * 0.4, prominence=0.02)
 
         # toe off: max upward velocity
@@ -117,7 +117,7 @@ class GaitAnalyzer:
             p1 = get_pt(start, f"{side}_Heel")
             p2 = get_pt(end, f"{side}_Heel")
             
-            # floor distance (ignore Y height)
+            # floor distance ignore Y height
             stride_len = np.sqrt((p2[0]-p1[0])**2 + (p2[2]-p1[2])**2) * 100 # m to cm
 
             # step length: Z-Distance between HEELS at strike

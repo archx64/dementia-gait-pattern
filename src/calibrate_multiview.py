@@ -24,9 +24,10 @@ CAMERAS = [
     {
         "name": "cam1",
         "path": os.path.join(IMAGES_DIR, "cam1/*.jpg"),
-        "is_reference": False,
+        "is_reference": True,
     }
 ]
+
 
 for i in range(2, CAMERA_COUNT + 1):
     CAMERAS.append(
@@ -38,15 +39,72 @@ for i in range(2, CAMERA_COUNT + 1):
     )
     # image_dirs[f"cam{i+1}"] = os.path.join(IMAGES_DIR, f"cam{i+1}/*.jpg")
 
-CAMERAS.append(
-    {
-        "name": "cam5",
-        "path": os.path.join(IMAGES_DIR, "cam5/*.jpg"),
-        "is_reference": True,
-    }
-)
+# CAMERAS.append(
+#     {
+#         "name": f"cam{CAMERA_COUNT+1}",
+#         "path": os.path.join(IMAGES_DIR, f"cam{CAMERA_COUNT+1}/*.jpg"),
+#         "is_reference": False,
+#     }
+# )
 
 print(json.dumps(CAMERAS, indent=4))
+
+
+def calculate_visual_floor(ref_cam_name, K, D):
+    """Finds the 'floor.jpg' image and calculates the leveling rotation matrix"""
+    floor_img_path = os.path.join(IMAGES_DIR, ref_cam_name, "floor.jpg")
+
+    if not os.path.exists(floor_img_path):
+        print(
+            WARNING
+            + f"No 'floor.jpg' found in {ref_cam_name} folder. Skipping floor alignment."
+        )
+        return np.eye(3)
+
+    print(INFO + "Calculating Visual Floor Alignment from floor.jpg...")
+    img = cv2.imread(floor_img_path)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    corners, ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict)
+    if corners is None or len(corners) == 0:
+        print(ERROR + "Could not detect markers on the floor board.")
+        return np.eye(3)
+
+    ret, char_corners, char_ids = cv2.aruco.interpolateCornersCharuco(
+        corners, ids, gray, board
+    )
+
+    if ret < 6:
+        print(ERROR + "Not enough ChArUco corners visible on the floor.")
+        return np.eye(3)
+
+    # Estimate 3D pose of the board on the floor
+    success, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(
+        char_corners, char_ids, board, K, D, np.empty(1), np.empty(1)
+    )
+
+    if not success:
+        print(ERROR + "Pose estimation of floor board failed.")
+        return np.eye(3)
+
+    board_R, _ = cv2.Rodrigues(rvec)
+    floor_normal = board_R[:, 2]  # The Z-axis of the flat board
+
+    # Target UP vector (Negative Y in OpenCV)
+    target_up = np.array([0, -1, 0])
+
+    v = np.cross(floor_normal, target_up)
+    c = np.dot(floor_normal, target_up)
+    s = np.linalg.norm(v)
+
+    if s == 0:
+        return np.eye(3)
+
+    kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+    R_align = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
+
+    print(SUCCESS + "Successfully calculated Floor Rotation Matrix.")
+    return R_align
 
 
 def detect_corners(cam_config):
@@ -192,7 +250,10 @@ def main():
         print(INFO + f"solving intrinsics for {name}")
 
         if len(res_name["all_corners"]) == 0 or len(res_name["all_ids"]) == 0:
-            print(ERROR + f"not enough valid ChArUco corners found for {name}. Could not calibrate...")
+            print(
+                ERROR
+                + f"not enough valid ChArUco corners found for {name}. Could not calibrate..."
+            )
             exit()
 
         inputK = np.array([])
@@ -235,7 +296,7 @@ def main():
         "rmse": ref_intrinsics["rmse"],
     }
 
-    # iterate over satellites (peripherical camers)
+    # iterate over sate+lites (peripherical camers)
     for cam in CAMERAS:
         target_name = cam["name"]
 
@@ -283,6 +344,8 @@ def main():
         flags = cv2.CALIB_USE_INTRINSIC_GUESS
         criteria = (cv2.TermCriteria_MAX_ITER + cv2.TermCriteria_EPS, 100, 1e-5)
 
+        target_shape = target_intrinsics["shape"]
+
         # ret, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
         #     objectPoints=obj_pts,
         #     imagePoints1=img_pts_ref,
@@ -305,6 +368,7 @@ def main():
             cameraMatrix2=target_intrinsics["K"],
             distCoeffs2=target_intrinsics["D"],
             imageSize=ref_intrinsics["shape"],
+            # imageSize=target_shape,
             criteria=criteria,
             flags=flags,
         )
@@ -324,8 +388,14 @@ def main():
             "rmse": ret,
         }
 
+    print(INFO + "\n phase 3: floor alignment")
+    R_align = calculate_visual_floor(ref_name, ref_intrinsics['K'], ref_intrinsics['D'])
+
+    save_dict = {"R_align": R_align}
+
+
     # save as .npz, structure the keys so they are easy to load
-    save_dict = {}
+    # save_dict = {}
     for cam_name, params in final_output["camera"].items():
         save_dict[f"{cam_name}_K"] = params["K"]
         save_dict[f"{cam_name}_D"] = params["D"]

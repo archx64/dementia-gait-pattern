@@ -5,16 +5,16 @@ from colorama import Back, Fore, Style, init
 warnings.filterwarnings("ignore")
 
 # ========== quick access parameters for pose estimation ==========
-SUBJECT_NAME = "prom"
+SUBJECT_NAME = "Kaung"
 ROUND = 2
 INTERPOLATE_MISSING = True
 SKELETON_SMOOTHING = False
-ALIGNMENT_METHOD = "tilt"
+ALIGNMENT_METHOD = "charuco"
 TILT_CORRECTION_ANGLE = -12
 
 # ========== intelrealsense ==========
 
-REALSENSE_IP = '192.168.11.55'
+REALSENSE_IP = "192.168.11.55"
 
 # ========== console colors ==========
 HEAD = Fore.LIGHTGREEN_EX + Back.BLACK + Style.NORMAL
@@ -28,7 +28,7 @@ init(autoreset=True)
 
 
 # ========== calibration config ==========
-CAMERA_COUNT = 4
+CAMERA_COUNT = 2
 SQUARES_X = 5
 SQUARES_Y = 7
 TARGET_PAPER = "A0"
@@ -41,12 +41,20 @@ PAPER_SIZES = {
     "A0": (841, 1189),
 }
 
+# PAPER_CONFIGS = {
+#     "A4": 0.036,  # 36mm
+#     "A3": 0.053,  # 53mm
+#     "A2": 0.078,  # 78mm
+#     "A1": 0.112,  # 112mm
+#     "A0": 0.162,  # 0.162mm
+# }
+
 PAPER_CONFIGS = {
     "A4": 0.036,  # 36mm
     "A3": 0.053,  # 53mm
     "A2": 0.078,  # 78mm
     "A1": 0.112,  # 112mm
-    "A0": 0.162,  # 0.162mm
+    "A0": 0.163,  # 0.162mm
 }
 SQUARES_LENGTH = PAPER_CONFIGS[TARGET_PAPER]
 MARKER_LENGTH = SQUARES_LENGTH * 0.75
@@ -55,8 +63,8 @@ if TARGET_PAPER not in PAPER_CONFIGS:
     print(ERROR + f"you must select paper from {PAPER_CONFIGS}")
     exit()
 
-# IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
-IMAGES_DIR = 'new_calibration_data'
+IMAGES_DIR = f"calibration_{CAMERA_COUNT+1}_cam"
+# IMAGES_DIR = 'new_calibration_data'
 # ========== calibration config end ==========
 
 
@@ -72,12 +80,12 @@ VIDEO_PATHS = [
     os.path.join(
         INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.mp4"
     ),
-    os.path.join(
-        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab3.mp4"
-    ),
-    os.path.join(
-        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab4.mp4"
-    ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab3.mp4"
+    # ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab4.mp4"
+    # ),
 ]
 
 FPS_ANALYSIS = 25
@@ -118,6 +126,8 @@ header = ["frame_idx", "total_distance_m"]
 
 # ========== classes for pose estimation start ==========
 
+SELECT_WINDOW = "Select Person"
+
 
 class PersonSelector:
     def __init__(self):
@@ -145,18 +155,18 @@ class PersonSelector:
                 2,
             )
 
-        cv2.namedWindow("Select Person")
-        cv2.setMouseCallback("Select Person", self.mouse_callback)
-        print(INFO + ">>> Click Person -> Spacebar")
+        cv2.namedWindow(SELECT_WINDOW)
+        cv2.setMouseCallback(SELECT_WINDOW, self.mouse_callback)
+        print(INFO + "click bounding box of the person and press spacebar")
 
         while True:
             temp = img_copy.copy()
             if self.selected_point:
                 cv2.circle(temp, self.selected_point, 5, (0, 0, 255), -1)
-            cv2.imshow("Select Person", temp)
+            cv2.imshow(SELECT_WINDOW, temp)
             if cv2.waitKey(20) & 0xFF == 32 and self.selected_point:
                 break
-        cv2.destroyWindow("Select Person")
+        cv2.destroyWindow(SELECT_WINDOW)
 
         cx, cy = self.selected_point
         for i, (x1, y1, x2, y2) in enumerate(bboxes):
@@ -343,9 +353,16 @@ def interpolate_skeleton(skeleton_history):
 
 
 class CoordinateAligner:
-    def __init__(self):
+    def __init__(self, npz_path=None):
         self.R_fix = np.eye(3)
         self.is_calibrated = False
+
+        if npz_path and os.path.exists(npz_path):
+            data = np.load(npz_path)
+            if 'R_align' in data:
+                self.R_fix = data['R_align']
+                self.is_calibrated = True
+                print(SUCCESS + 'loaded visual floor alignment matrix from calibration')
 
     def align(self, pts_3d):
         if not self.is_calibrated:
@@ -362,7 +379,7 @@ class CoordinateAligner:
 
         self.is_calibrated = True
         print(INFO + f"Floor aligned using Fixed Tilt ({angle_degrees}°).")
-        return 0    
+        return 0
 
     def calibrate_floor_pca(self, feet_points_history):
         """

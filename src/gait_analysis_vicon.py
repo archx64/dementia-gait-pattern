@@ -109,7 +109,7 @@ class GaitAnalyzer:
             # print(f'R_Heel_X: {rx}')
             # print(f'R_Heel_Y: {ry}')
 
-            # Step Length & Width
+            # step length and width
             step_len = np.sqrt((lx - rx) ** 2 + (lz - rz) ** 2) * 100 * 2
             # step_len = abs(lz - rz) * 100
 

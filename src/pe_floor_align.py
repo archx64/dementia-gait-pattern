@@ -174,7 +174,7 @@ def main():
         processed_data = np.array(raw_3d_history)
 
     # --- ALIGNMENT PHASE ---
-    aligner = CoordinateAligner()
+    aligner = CoordinateAligner(npz_path=CALIBRATION_FILE)
 
     if ALIGNMENT_METHOD.lower() == 'pca':
 
@@ -193,12 +193,17 @@ def main():
         # Calibrate using Coordinate Aligner class
         aligner.calibrate_floor_pca(feet_history)
 
-    elif ALIGNMENT_METHOD.lower() == 'tilt':
-        aligner.calibrate_tilt(TILT_CORRECTION_ANGLE)
+    elif ALIGNMENT_METHOD.lower() == 'charuco':
+        if aligner.is_calibrated:
+            print(SUCCESS + "using ChArUco board on the floor")
+
+        else:
+            print(ERROR + "ChArUco board on the floor is not found in calibration file")
+            aligner.is_calibrated = False
     
     else:
         print(WARNING + F"selected alignment method {ALIGNMENT_METHOD} is not available. using raw coordinates.")
-        aligner.is_calibrated = True
+        aligner.is_calibrated = False
 
     smoother = SkeletonSmoother(num_joints=num_joints, fps=FPS_ANALYSIS)
     final_data = []
@@ -221,21 +226,25 @@ def main():
             valid = smoothed[~np.isnan(smoothed[:, 0])]
 
             if len(valid) > 0:
+                TRIPOD_HEIGHT = 2.15
+                plot_y = -valid[:, 1] + TRIPOD_HEIGHT
+
                 # --- VISUALIZATION MAPPING ---
                 # X axis = valid[:, 0]
                 # Y axis (Depth) = valid[:, 2]
                 # Z axis (Height) = -valid[:, 1] (Because OpenCV Y is Down)
 
-                ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2)
+                # ax.scatter(valid[:, 0], valid[:, 2], -valid[:, 1], c="red", s=2)
+                ax.scatter(valid[:, 0], valid[:, 2], plot_y, c='red', s=1)
 
-                # Draw connections for better skeleton visibility (Optional)
-                # But simple scatter is enough to verify floor
+                # draw connections for better skeleton visibility (optional)
+                # but simple scatter is enough to verify floor
 
-                # Axis Limits (Adjust based on your room size)
-                # Assuming calibrated: Y is Up/Down.
-                ax.set_xlim(-2, 2)  # Side to side (Meters)
-                ax.set_ylim(-1, 5)  # Depth (Meters)
-                ax.set_zlim(0, 2)  # Height (Meters) - Floor is 0
+                # axis limits (Adjust based on your room size)
+                # assuming calibrated: Y is Up/Down.
+                ax.set_xlim(-2, 2)  # side to side (Meters)
+                ax.set_ylim(-1, 5)  # depth (Meters)
+                ax.set_zlim(0, 2)  # height (Meters) - Floor is 0
 
                 ax.set_xlabel("X (Width)")
                 ax.set_ylabel("Z (Depth)")
@@ -265,9 +274,9 @@ def main():
 
     f_csv.close()
 
-    # Keep plot open for a moment
-    print(SUCCESS + f"File Saved: {OUTPUT_CSV}")
-    print(INFO + "Closing in 3 seconds...")
+    # keep plot open for a moment
+    print(SUCCESS + f"file saved: {OUTPUT_CSV}")
+    print(INFO + "closing in 3 seconds...")
     plt.pause(3)
     cv2.destroyAllWindows()
     plt.close()

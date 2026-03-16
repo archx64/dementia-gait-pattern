@@ -46,7 +46,7 @@ class RealsenseCamera:
             # rs.net_device(self.ip)
 
             # setup stream: D555 usually handles 1920x1080 @ 30fps well
-            self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 25)
+            self.config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
 
             self.pipeline.start(self.config)
             self.started = True
