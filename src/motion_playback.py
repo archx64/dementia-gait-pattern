@@ -65,7 +65,7 @@ def update(frame_idx, data, scat, lines, title_text):
     
     xs = current_frame[:, 0]
     ys = current_frame[:, 2]  # Z from CSV becomes Y in Plot (Depth)
-    zs = -current_frame[:, 1] # -Y from CSV becomes Z in Plot (Height)
+    zs = current_frame[:, 1] # -Y from CSV becomes Z in Plot (Height)
     
     # xs = current_frame[:, 0]
     # ys = -current_frame[:, 1]

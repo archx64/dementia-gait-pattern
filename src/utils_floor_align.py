@@ -4,13 +4,13 @@ from colorama import Back, Fore, Style, init
 
 warnings.filterwarnings("ignore")
 
-# ========== quick access parameters for pose estimation ==========
+# ========== quick access parameters for pose estimation ========== 
 SUBJECT_NAME = "Kaung"
-ROUND = 2
+ROUND = 7
 INTERPOLATE_MISSING = True
 SKELETON_SMOOTHING = False
 ALIGNMENT_METHOD = "charuco"
-TILT_CORRECTION_ANGLE = -12
+# TILT_CORRECTION_ANGLE = -12
 
 # ========== intelrealsense ==========
 
@@ -266,12 +266,15 @@ class SkeletonSmoother:
 
 class MultiviewTriangulator:
     def __init__(self, npz_path, cam_names):
-        self.cameras = {}
+        self.cameras = dict()
         self.data = np.load(npz_path)
 
         all_keys = list(self.data.keys())
-        sorted_prefixes = sorted(list(set([k.split("_")[0] for k in all_keys])))
 
+        # filter to only grab valid camera keys and ignore floor alignment matrix
+        sorted_prefixes = sorted(list(set([k.split("_")[0] for k in all_keys if "cam" in k])))
+
+        print(INFO + '\ncamera mapping sanity check\n')    
         for i, prefix in enumerate(sorted_prefixes):
             if i >= len(cam_names):
                 break
@@ -281,6 +284,10 @@ class MultiviewTriangulator:
             RT = np.hstack((R, T))
             P = K @ RT
             self.cameras[i] = {"P": P}
+
+            # extract filename from video file
+            video_file = os.path.basename(cam_names[i]) if isinstance(cam_names[i], str) else f"Video Stream {i}"
+            print(SUCCESS + f"Triangulator Slot [{i}]: Matrix '{prefix}' --> Mapped to '{video_file}'")
 
     def triangulate_one_point(self, views):
         """Robust Triangulation (Vote & Verify)"""

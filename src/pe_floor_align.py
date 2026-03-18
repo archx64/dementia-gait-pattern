@@ -18,7 +18,7 @@ from src.utils_floor_align import (
     SKELETON_SMOOTHING,
     INTERPOLATE_MISSING,
     ALIGNMENT_METHOD,
-    TILT_CORRECTION_ANGLE,
+    # TILT_CORRECTION_ANGLE,
     SkeletonSmoother,
     PersonSelector,
     MultiviewTriangulator,
