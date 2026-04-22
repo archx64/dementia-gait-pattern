@@ -85,7 +85,8 @@ def visualize_multicam():
     # --- DRAW THE PERFECTLY FLAT FLOOR ---
     if has_floor:
         # OpenCV Y is Down. RealSense is approx 1 meter off ground.
-        floor_opencv_y = -2.15 
+        # floor_opencv_y = -2.15 # AIT Center
+        floor_opencv_y = -2.325
         
         # 4 meters in all directions
         grid_limit = 4.0 

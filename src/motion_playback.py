@@ -6,13 +6,13 @@ import os
 from src.utils_floor_align import OUTPUT_CSV, FPS_ANALYSIS
 
 # ================= CONFIGURATION =================
-# Path to your CSV file
+# path to CSV file
 # OUTPUT_CSV = "output/Kaung_skeleton_1.csv" 
 
-# Adjust playback speed (interval in milliseconds)
+# adjust playback speed (interval in milliseconds)
 FRAME_INTERVAL = 1000 / FPS_ANALYSIS  # 40ms = approx 25 FPS
 
-# Axis Limits (Adjust based on your room size/data range)
+# axis Limits (Adjust based on your room size/data range)
 # X_LIMITS = (-2, 2)    # Width (meters)
 # Y_LIMITS = (-1, 5)    # Depth (meters)
 # Z_LIMITS = (0, 2)     # Height (meters)
@@ -21,18 +21,19 @@ X_LIMITS = (-3, 3)    # Width (meters)
 Y_LIMITS = (6, 12)    # Depth (meters)
 Z_LIMITS = (0, 6)     # Height (meters)
 
-# Skeletal Connections (Standard COCO/WholeBody topology)
-# Connecting indices to form bones
+# skeletal Connections (Standard COCO/WholeBody topology)
+# connecting indices to form bones
+
 BONES = [
-    # Torso
+    # torso
     (5, 6), (5, 11), (6, 12), (11, 12),
-    # Arms
+    # arms
     (5, 7), (7, 9), (6, 8), (8, 10),
-    # Legs
+    # legs
     (11, 13), (13, 15), (12, 14), (14, 16),
-    # Feet (Heel to Toe)
+    # feet (heel to toe)
     (15, 17), (15, 19), (16, 20), (16, 22), 
-    # Face (Simplified)
+    # face (simplified)
     (0, 1), (0, 2), (1, 3), (2, 4)
 ]
 # =================================================
@@ -41,10 +42,10 @@ def load_data(csv_path):
     print(f"Loading {csv_path}...")
     df = pd.read_csv(csv_path)
     
-    # Extract columns that start with 'j'
+    # extract columns that start with 'j'
     joint_cols = [c for c in df.columns if c.startswith('j')]
     
-    # Reshape: (Frames, Joints, 3)
+    # reshape: (Frames, Joints, 3)
     n_frames = len(df)
     n_joints = len(joint_cols) // 3
     data = df[joint_cols].values.reshape(n_frames, n_joints, 3)
@@ -55,13 +56,13 @@ def update(frame_idx, data, scat, lines, title_text):
     """
     Update function for animation
     """
-    # Get current frame data
+    # get current frame data
     current_frame = data[frame_idx]
     
-    # 1. Update Scatter Plot (Dots)
-    # Coordinate Mapping for Plotting:
+    # update scatter plot
+    # coordinate mapping for plotting:
     # CSV Data: X=Width, Y=Height (down), Z=Depth
-    # Matplotlib 3D: X=Width, Y=Depth, Z=Height (up)
+    # matplotlib 3D: X=Width, Y=Depth, Z=Height (up)
     
     xs = current_frame[:, 0]
     ys = current_frame[:, 2]  # Z from CSV becomes Y in Plot (Depth)
@@ -82,15 +83,15 @@ def update(frame_idx, data, scat, lines, title_text):
             p1 = current_frame[start]
             p2 = current_frame[end]
             
-            # Check for NaNs
+            # check for NaNs
             if np.isnan(p1).any() or np.isnan(p2).any():
                 line.set_data([], [])
                 line.set_3d_properties([])
                 continue
 
-            # Draw Line
+            # draw line
             line.set_data([p1[0], p2[0]], [p1[2], p2[2]]) # X and Depth
-            line.set_3d_properties([-p1[1], -p2[1]])      # Height
+            line.set_3d_properties([-p1[1], -p2[1]])      # height
             
     title_text.set_text(f"Frame: {frame_idx}")
     return scat, lines, title_text
@@ -104,17 +105,17 @@ def main():
     n_frames = len(data)
     print(f"Loaded {n_frames} frames.")
 
-    # Setup Plot
+    # setup plot
     fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111, projection='3d')
     
-    # Initialize Scatter (Points)
+    # initialize scatter (Points)
     scat = ax.scatter([], [], [], c='red', s=5)
     
-    # Initialize Lines (Bones)
+    # initialize lines (Bones)
     lines = [ax.plot([], [], [], 'black', linewidth=1)[0] for _ in BONES]
     
-    # Axis Setup
+    # axis setup
     ax.set_xlim(X_LIMITS)
     ax.set_ylim(Y_LIMITS)
     ax.set_zlim(Z_LIMITS)
@@ -123,12 +124,12 @@ def main():
     ax.set_ylabel('Y (Depth)')
     ax.set_zlabel('Z (Height)')
     
-    # Initial View Angle
+    # initial view angle
     ax.view_init(elev=20, azim=45)
     
     title_text = ax.set_title("Initializing...")
 
-    # Create Animation
+    # create animation
     anim = FuncAnimation(
         fig, 
         update, 

@@ -34,7 +34,7 @@ def ping_device(ip):
 
 
 def check_rtsp_stream(url):
-    """Attempts to grab a single frame from the IP camera."""
+    """attempts to grab a single frame from the IP camera."""
     cap = cv2.VideoCapture(url)
     if not cap.isOpened():
         return False
@@ -45,15 +45,15 @@ def check_rtsp_stream(url):
 
 def check_realsense_sdk(ip):
     """
-    Verifies D555 by searching for the network device in the current context.
-    This avoids using missing 'net_device' or 'add_device' attributes.
+    verifies D555 by searching for the network device in the current context.
+    this avoids using missing 'net_device' or 'add_device' attributes.
     """
     try:
         ctx = rs.context()
         devices = ctx.query_devices()
         target_dev = None
 
-        # Loop through discovered devices to find the one matching your IP
+        # loop through discovered devices to find the one matching your IP
         for dev in devices:
             if dev.supports(rs.camera_info.ip_address):
                 if dev.get_info(rs.camera_info.ip_address) == ip:
@@ -67,7 +67,7 @@ def check_realsense_sdk(ip):
         pipeline = rs.pipeline()
         config = rs.config()
         
-        # Tell the config to use ONLY this specific device we found
+        # tell the config to use ONLY this specific device we found
         config.enable_device(target_dev.get_info(rs.camera_info.serial_number))
         config.enable_stream(rs.stream.color, 1280, 720, rs.format.bgr8, 30)
         
@@ -91,9 +91,9 @@ def main():
     for name, ip in IP_CAMERAS.items():
         print(f"Checking {name} ({ip})...", end=" ", flush=True)
 
-        # Level 1: Ping
+        # level 1: Ping
         if ping_device(ip):
-            # Level 2: Stream
+            # level 2: Stream
             url = RTSP_SUFFIX.format(ip)
             if check_rtsp_stream(url):
                 print(SUCCESS + "ONLINE")
@@ -104,7 +104,7 @@ def main():
             print(ERROR + "OFFREACHABLE (Check Switch/Cables)")
             all_passed = False
 
-    # Check RealSense D555
+    # check RealSense D555
     print(f"Checking RealSense D555 ({REALSENSE_IP})...", end=" ", flush=True)
     if ping_device(REALSENSE_IP):
         if check_realsense_sdk(REALSENSE_IP):

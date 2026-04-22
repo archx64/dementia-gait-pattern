@@ -5,19 +5,26 @@ from src.utils_floor_align import INFO, ERROR, FPS_ANALYSIS, SUBJECT_NAME, REALS
 from colorama import init
 
 # refactored calibration
+# IP_CAMERAS = {
+#     "cam1": "192.168.6.100",
+#     "cam2": "192.168.6.101",
+#     "cam3": "192.168.6.102",
+#     "cam4": "192.168.6.103",
+# }
+
 IP_CAMERAS = {
-    "cam1": "192.168.6.100",
-    "cam2": "192.168.6.101",
-    "cam3": "192.168.6.102",
-    "cam4": "192.168.6.103",
+    "cam1": "192.168.11.60",
+    "cam2": "192.168.11.61",
+    "cam3": "192.168.11.62",
 }
+
 RTSP_SUFFIX = "rtsp://admin:csimAIT5706@{}:554/Streaming/Channels/101/"
 
 BASE_DIR = "new_calibration_data"
 VIDEO_DIR = "synchronized_videos"
 WINDOW_NAME = "Multi-View Capture (2x3 Grid)"
 
-USE_REALSENSE = True
+USE_REALSENSE = False
 
 init(autoreset=True)
 

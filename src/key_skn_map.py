@@ -1,5 +1,4 @@
 from .utils import SKELETON, keypoint_names
-import json
 
 
 def map_keypoints_to_skeleton():

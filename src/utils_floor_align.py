@@ -28,7 +28,7 @@ init(autoreset=True)
 
 
 # ========== calibration config ==========
-CAMERA_COUNT = 2
+CAMERA_COUNT = 3
 SQUARES_X = 5
 SQUARES_Y = 7
 TARGET_PAPER = "A0"
@@ -63,7 +63,7 @@ if TARGET_PAPER not in PAPER_CONFIGS:
     print(ERROR + f"you must select paper from {PAPER_CONFIGS}")
     exit()
 
-IMAGES_DIR = f"calibration_{CAMERA_COUNT+1}_cam"
+IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 # IMAGES_DIR = 'new_calibration_data'
 # ========== calibration config end ==========
 
@@ -381,7 +381,7 @@ class CoordinateAligner:
         theta = np.radians(angle_degrees)
         c, s = np.cos(theta), np.sin(theta)
 
-        # Rotation matrix around X-axis
+        # rotation matrix around X-axis
         self.R_fix = np.array([[1, 0, 0], [0, c, -s], [0, s, c]])
 
         self.is_calibrated = True
@@ -423,7 +423,7 @@ class CoordinateAligner:
             # dot product checks alignment magnitude (ignoring direction for now)
             alignment = abs(np.dot(vec, target_vertical))
 
-            # If this vector is more vertical than the others, and represents
+            # if this vector is more vertical than the others, and represents
             # a dimension with relatively low variance (it should be the floor), pick it.
             # however, usually checking alignment is enough for floor vs wall.
             if alignment > best_dot:
