@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import os
-from src.utils_floor_align import OUTPUT_CSV, FPS_ANALYSIS
+from src.utils_floor_align import OUTPUT_CSV, FPS_ANALYSIS, X_LIMITS, Y_LIMITS, Z_LIMITS
 
 # ================= CONFIGURATION =================
 # path to CSV file
@@ -17,9 +17,7 @@ FRAME_INTERVAL = 1000 / FPS_ANALYSIS  # 40ms = approx 25 FPS
 # Y_LIMITS = (-1, 5)    # Depth (meters)
 # Z_LIMITS = (0, 2)     # Height (meters)
 
-X_LIMITS = (-3, 3)    # Width (meters)
-Y_LIMITS = (6, 12)    # Depth (meters)
-Z_LIMITS = (0, 6)     # Height (meters)
+
 
 # skeletal Connections (Standard COCO/WholeBody topology)
 # connecting indices to form bones
@@ -41,6 +39,11 @@ BONES = [
 def load_data(csv_path):
     print(f"Loading {csv_path}...")
     df = pd.read_csv(csv_path)
+#     "A3": 0.053,  # 53mm
+#     "A2": 0.078,  # 78mm
+#     "A1": 0.112,  # 112mm
+#     "A0": 0.162,  # 0.162mm
+# }
     
     # extract columns that start with 'j'
     joint_cols = [c for c in df.columns if c.startswith('j')]
@@ -66,6 +69,7 @@ def update(frame_idx, data, scat, lines, title_text):
     
     xs = current_frame[:, 0]
     ys = current_frame[:, 2]  # Z from CSV becomes Y in Plot (Depth)
+    # zs = current_frame[:, -1]
     zs = current_frame[:, 1] # -Y from CSV becomes Z in Plot (Height)
     
     # xs = current_frame[:, 0]
@@ -75,6 +79,8 @@ def update(frame_idx, data, scat, lines, title_text):
     # filter out NaNs for scatter
     valid_mask = ~np.isnan(xs)
     if np.any(valid_mask):
+        # scat._offsets3d = (xs[valid_mask], ys[valid_mask], zs[valid_mask])
+
         scat._offsets3d = (xs[valid_mask], ys[valid_mask], zs[valid_mask])
     
     # draw lines (bones)
@@ -91,7 +97,8 @@ def update(frame_idx, data, scat, lines, title_text):
 
             # draw line
             line.set_data([p1[0], p2[0]], [p1[2], p2[2]]) # X and Depth
-            line.set_3d_properties([-p1[1], -p2[1]])      # height
+            # line.set_3d_properties([-p1[1], -p2[1]])      # height
+            line.set_3d_properties([p1[1], p2[1]])
             
     title_text.set_text(f"Frame: {frame_idx}")
     return scat, lines, title_text
@@ -106,11 +113,11 @@ def main():
     print(f"Loaded {n_frames} frames.")
 
     # setup plot
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(16, 9))
     ax = fig.add_subplot(111, projection='3d')
     
     # initialize scatter (Points)
-    scat = ax.scatter([], [], [], c='red', s=5)
+    scat = ax.scatter([], [], [], c='red', s=3)
     
     # initialize lines (Bones)
     lines = [ax.plot([], [], [], 'black', linewidth=1)[0] for _ in BONES]

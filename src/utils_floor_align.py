@@ -1,22 +1,42 @@
 import os, cv2, warnings, math, itertools
 import numpy as np, pandas as pd
+import yaml
 from colorama import Back, Fore, Style, init
 
 warnings.filterwarnings("ignore")
 
-# ========== quick access parameters for pose estimation ========== 
-SUBJECT_NAME = "Kaung"
-ROUND = 7
-INTERPOLATE_MISSING = True
+# ========== quick access parameters for pose estimation ==========
+_SESSION_YAML = os.path.join(os.path.dirname(__file__), "..", "config", "session.yaml")
+with open(_SESSION_YAML) as _f:
+    _cfg = yaml.safe_load(_f)
+
+SUBJECT_NAME = _cfg["subject_name"]
+P_NO         = _cfg["p_no"]
+ROUND        = _cfg["round"]
+
+X_LIMITS = (-2, 2)    # Width (meters)
+Y_LIMITS = (-8, 0)    # Depth (meters)
+Z_LIMITS = (0, 3)     # Height (meters)
+
+DAY   = _cfg["day"]
+MONTH = _cfg["month"]
+
+INTERPOLATE_MISSING = True  
 SKELETON_SMOOTHING = False
-ALIGNMENT_METHOD = "charuco"
-# TILT_CORRECTION_ANGLE = -12
+
+ALIGNMENT_METHOD = "pca"
+# TILT_CORRECTION_ANGLE = -12os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.avi"
+    # ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.avi"
+    # ),
 
 # ========== intelrealsense ==========
 
 REALSENSE_IP = "192.168.11.55"
 
-# ========== console colors ==========
+# ========== console colors ==========pose_estimation.py
 HEAD = Fore.LIGHTGREEN_EX + Back.BLACK + Style.NORMAL
 BODY = Fore.LIGHTYELLOW_EX + Back.BLACK + Style.NORMAL
 ERROR = Fore.LIGHTRED_EX + Back.BLACK + Style.BRIGHT
@@ -27,6 +47,13 @@ WARNING = Fore.BLACK + Back.YELLOW + Style.NORMAL
 init(autoreset=True)
 
 
+#     "A3": 0.053,  # 53mm
+#     "A2": 0.078,  # 78mm
+#     "A1": 0.112,  # 112mm
+#     "A0": 0.162,  # 0.162mm
+# }
+
+# skeletal Connections (Standard COCO/Wh
 # ========== calibration config ==========
 CAMERA_COUNT = 3
 SQUARES_X = 5
@@ -71,15 +98,26 @@ IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam"
 # ========== pose estimation ==========
 
 
-INPUT_DIR = "synchronized_videos"
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.avi"
+    # ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.avi"
+    # ),
+# INPUT_DIR = "synchronized_videos"
+
+INPUT_DIR = "synchronized_mahidol"
 
 VIDEO_PATHS = [
-    os.path.join(
-        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.mp4"
-    ),
-    os.path.join(
-        INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.mp4"
-    ),
+    os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' , f'p{P_NO}' ,f'r{ROUND}', 'c1.mp4'),
+    os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' ,f'p{P_NO}' ,f'r{ROUND}', 'c2.mp4'),
+    os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' , f'p{P_NO}' ,f'r{ROUND}', 'c3.mp4')
+
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.avi"
+    # ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.avi"
+    # ),
     # os.path.join(
     #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab3.mp4"
     # ),
@@ -92,9 +130,11 @@ FPS_ANALYSIS = 25
 ROBUST_TRIANGULATION = True
 
 
-OUTPUT_DIR = "output"
+# OUTPUT_DIR = "output"
+OUTPUT_DIR  = 'output_mahidol/skeleton'
 
-OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_skeleton_{ROUND}.csv")
+# OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_skeleton_{ROUND}.csv")
+OUTPUT_CSV =  os.path.join(OUTPUT_DIR, f'{DAY}-{MONTH}_{SUBJECT_NAME}_p{P_NO}_r{ROUND}.csv')
 
 CALIBRATION_FILE = os.path.join(
     INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz"
@@ -438,6 +478,9 @@ class CoordinateAligner:
         if np.dot(normal, target) < 0:
             normal = -normal
 
+        # if normal[1] > 0:
+        #     normal = -normal
+
         # calculate Rotation Matrix
         v = np.cross(normal, target)
         c = np.dot(normal, target)
@@ -452,71 +495,3 @@ class CoordinateAligner:
         self.is_calibrated = True
         print(SUCCESS + "floor calibrated (Gravity Aware PCA).")
         return 0
-
-    # def calibrate_floor_pca(self, feet_points_history):
-    #     """
-    #     Robust PCA Floor Calibration.
-    #     Filters out the 'swing' phase of the feet and only uses the 'stance'
-    #     phase (planted feet) to prevent diagonal wall rolling.
-    #     """
-    #     # flatten data and remove NaNs
-    #     data = np.array([p for frame in feet_points_history for p in frame])
-    #     data = data[~np.isnan(data).any(axis=1)]
-
-    #     if len(data) < 10:
-    #         print(WARNING + "not enough points to calibrate floor. using identity.")
-    #         return 0
-
-    #     # --- THE FIX: ISOLATE PLANTED FEET ---
-    #     # In OpenCV, Y increases DOWNWARDS.
-    #     # Therefore, the feet physically touching the floor have the HIGHEST Y values.
-    #     y_coords = data[:, 1]
-
-    #     # find the threshold for the bottom 30% of feet (the planted ones)
-    #     floor_threshold = np.percentile(y_coords, 70)
-
-    #     # filter the data to only include points on the floor
-    #     floor_points = data[y_coords >= floor_threshold]
-
-    #     # safety fallback if filtering leaves too few points
-    #     if len(floor_points) < 3:
-    #         floor_points = data
-
-    #     # centroid centering on the filtered floor points
-    #     centroid = np.mean(floor_points, axis=0)
-    #     centered = floor_points - centroid
-
-    #     # singular value decomposition
-    #     u, s, vh = np.linalg.svd(centered)
-
-    #     # find the vector closest to the vertical axis
-    #     target_vertical = np.array([0, 1, 0])
-    #     best_dot = -1
-    #     normal = vh[2, :]
-
-    #     for i in range(3):
-    #         vec = vh[i, :]
-    #         alignment = abs(np.dot(vec, target_vertical))
-    #         if alignment > best_dot:
-    #             best_dot = alignment
-    #             normal = vec
-
-    #     # align normal to point UP (-Y in inverted OpenCV)
-    #     target = np.array([0, -1, 0])
-    #     if np.dot(normal, target) < 0:
-    #         normal = -normal
-
-    #     # calculate rotation matrix
-    #     v = np.cross(normal, target)
-    #     c = np.dot(normal, target)
-    #     s = np.linalg.norm(v)
-
-    #     if s == 0:
-    #         self.R_fix = np.eye(3)
-    #     else:
-    #         kmat = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
-    #         self.R_fix = np.eye(3) + kmat + kmat @ kmat * ((1 - c) / (s**2))
-
-    #     self.is_calibrated = True
-    #     print(SUCCESS + "floor calibrated (Planted Feet PCA).")
-    #     return 0

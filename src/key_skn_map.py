@@ -1,4 +1,4 @@
-from .utils import SKELETON, keypoint_names
+from src.utils_floor_align import SKELETON, keypoint_names
 
 
 def map_keypoints_to_skeleton():

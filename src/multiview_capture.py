@@ -4,9 +4,9 @@ from src.utils_floor_align import INFO, WARNING, ERROR, FPS_ANALYSIS, SUBJECT_NA
 
 # configuration
 CAMERA_SOURCES = [
-    "rtsp://admin:csimAIT5706@192.168.11.61:554/Streaming/Channels/101/",
-    "rtsp://admin:csimAIT5706@192.168.11.104:554/Streaming/Channels/101/",
-    "rtsp://admin:csimAIT5706@192.168.11.62:554/Streaming/Channels/101/",
+    "rtsp://admin:csimAIT5706@192.168.11.3:554/Streaming/Channels/101/",
+    "rtsp://admin:csimAIT5706@192.168.11.4:554/Streaming/Channels/101/",
+    # "rtsp://admin:csimAIT5706@192.168.11.62:554/Streaming/Channels/101/",
     # "rtsp://admin:csimAIT5706@192.168.11.103:554/Streaming/Channels/101/",
 ]
 

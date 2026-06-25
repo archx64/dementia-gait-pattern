@@ -2,7 +2,7 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2, torch, os, functools
 from mmpose.apis import MMPoseInferencer
-from utils import CONFIG_PATH, WEIGHT_PATH, INFO, DEBUG
+from deprecated.utils import CONFIG_PATH, WEIGHT_PATH, INFO, DEBUG
 
 
 def main():

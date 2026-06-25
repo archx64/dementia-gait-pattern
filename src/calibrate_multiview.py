@@ -91,7 +91,8 @@ def calculate_visual_floor(ref_cam_name, K, D):
     floor_normal = board_R[:, 2]  # The Z-axis of the flat board
 
     # Target UP vector (Negative Y in OpenCV)
-    target_up = np.array([0, -1, 0])
+    # target_up = np.array([0, -1, 0])
+    target_up = np.array([0,1,0])
 
     v = np.cross(floor_normal, target_up)
     c = np.dot(floor_normal, target_up)

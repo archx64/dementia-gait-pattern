@@ -3,7 +3,7 @@ import numpy as np
 import os
 import math
 import time
-from utils import ERROR
+from deprecated.utils import ERROR
 
 # --- CONFIGURATION ---
 WINDOW_NAME = "Synchronized Video Checker"

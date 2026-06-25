@@ -16,6 +16,9 @@ description:
         end_frame: 6413
 
       c2:
+        video: '0000000133500000000.mp4'
+        start_frame: 
+        end_frame:
 
     r2:
       start_time: "10:54:30"

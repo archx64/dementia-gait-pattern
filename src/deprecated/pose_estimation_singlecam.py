@@ -5,7 +5,7 @@ import numpy as np
 from colorama import Fore, init, Style, Back
 from mmpose.apis import MMPoseInferencer
 from mmengine.registry import init_default_scope
-from utils import SKELETON, keypoint_names, header, CONFIG_PATH, WEIGHT_PATH
+from deprecated.utils import SKELETON, keypoint_names, header, CONFIG_PATH, WEIGHT_PATH
 
 init_default_scope("mmdet")
 
