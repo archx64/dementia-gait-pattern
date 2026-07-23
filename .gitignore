@@ -5,17 +5,17 @@ Gait3D-Benchmark/
 CV/
 res/
 output/
-synchronized_videos/
-synchronized_mahidol/
-calibration_2_cam/
-calibration_3_cam/
-calibration_4_cam/
-calibration_2_cam_*/
-calibration_3_cam_*/
-calibration_4_cam_*/
+synchronized_*/
+# synchronized_mahidol/
+# calibration_2_cam/
+# calibration_3_cam/
+# calibration_4_cam/
+# calibration_2_cam_*/
+# calibration_3_cam_*/
+# calibration_4_cam_*/
 blender_output/
 new_calibration_data/
 prompts/
 git_push.sh
-calibration_mahidol/
-output_mahidol/
+output_*/
+calibration_*/

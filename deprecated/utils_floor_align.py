@@ -1,20 +1,18 @@
-import os, cv2, glob, warnings, math, itertools
+import os, cv2, warnings, math, itertools
 import numpy as np, pandas as pd
 import yaml
 from colorama import Back, Fore, Style, init
 
 warnings.filterwarnings("ignore")
 
-_SESSION_YAML = os.path.join("config", "session.yaml")
+# ========== quick access parameters for pose estimation ==========
+_SESSION_YAML = os.path.join(os.path.dirname(__file__), "..", "config", "session.yaml")
 with open(_SESSION_YAML) as _f:
     _cfg = yaml.safe_load(_f)
 
 SUBJECT_NAME = _cfg["subject_name"]
 P_NO         = _cfg["p_no"]
 ROUND        = _cfg["round"]
-
-INPUT_DIR = _cfg.get("input_dir", "synchronized_phramongkut")
-CAMERA_COUNT = _cfg.get("camera_count", 2)
 
 X_LIMITS = (-2, 2)    # Width (meters)
 Y_LIMITS = (-8, 0)    # Depth (meters)
@@ -26,11 +24,17 @@ MONTH = _cfg["month"]
 INTERPOLATE_MISSING = True  
 SKELETON_SMOOTHING = False
 
-ALIGNMENT_METHOD = _cfg.get('alignment_method', 'pca')
+ALIGNMENT_METHOD = _cfg.get("alignment_method", "pca")
+# TILT_CORRECTION_ANGLE = -12os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.avi"
+    # ),
+    # os.path.join(
+    #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab2.avi"
+    # ),
 
 # ========== intelrealsense ==========
 
-REALSENSE_IP = "192.168.11.55"
+REALSENSE_IP = "192.168.11.56"
 
 # ========== console colors ==========pose_estimation.py
 HEAD = Fore.LIGHTGREEN_EX + Back.BLACK + Style.NORMAL
@@ -51,8 +55,7 @@ init(autoreset=True)
 
 # skeletal Connections (Standard COCO/Wh
 # ========== calibration config ==========
-# CAMERA_COUNT = 3
-
+CAMERA_COUNT = 3
 SQUARES_X = 5
 SQUARES_Y = 7
 TARGET_PAPER = "A0"
@@ -73,22 +76,15 @@ PAPER_SIZES = {
 #     "A0": 0.162,  # 0.162mm
 # }
 
-PAPER_CONFIGS = {   
+PAPER_CONFIGS = {
     "A4": 0.036,  # 36mm
     "A3": 0.053,  # 53mm
     "A2": 0.078,  # 78mm
     "A1": 0.112,  # 112mm
-    "A0": 0.163,  # 0.163mm
+    "A0": 0.163,  # 0.162mm
 }
-
-MARKER_SIZES = {
-    "A0": 0.1215,
-}
-
-SQUARES_LENGTH = PAPER_CONFIGS.get(TARGET_PAPER, 0)
-MARKER_LENGTH = MARKER_SIZES.get(TARGET_PAPER, 0)
-
-
+SQUARES_LENGTH = PAPER_CONFIGS[TARGET_PAPER]
+MARKER_LENGTH = SQUARES_LENGTH * 0.75
 
 if TARGET_PAPER not in PAPER_CONFIGS:
     print(ERROR + f"you must select paper from {PAPER_CONFIGS}")
@@ -96,151 +92,7 @@ if TARGET_PAPER not in PAPER_CONFIGS:
 
 IMAGES_DIR = f"calibration_{CAMERA_COUNT}_cam_{DAY:02d}_{MONTH:02d}"
 # IMAGES_DIR = 'new_calibration_data'
-
-# Camera intrinsics (K, D) only depend on the physical lens/sensor, not on
-# where the cameras are placed for a given session — calibrate_intrinsics.py
-# solves them once and saves here; calibrate_multiview.py reuses them every
-# session instead of re-solving from scratch, and only re-solves extrinsics
-# (R, T) + floor alignment, which DO change whenever cameras are repositioned.
-# INTRINSICS_FILE = os.path.join(INPUT_DIR, f"intrinsics_datasheet_{CAMERA_COUNT}_{TARGET_PAPER}_{DAY:02d}_{MONTH:02d}.npz")
-INTRINSICS_FILE = os.path.join(INPUT_DIR, f"intrinsics_{CAMERA_COUNT}_{TARGET_PAPER}_{DAY:02d}_{MONTH:02d}.npz")
 # ========== calibration config end ==========
-# ========== calibration config end ==========
-
-
-# ========== calibration shared helpers ==========
-# Shared by calibrate_intrinsics.py (one-time intrinsics solve) and
-# calibrate_multiview.py (per-session extrinsics + floor alignment).
-
-ARUCO_DICT = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
-CHARUCO_BOARD = cv2.aruco.CharucoBoard(
-    (SQUARES_X, SQUARES_Y), SQUARES_LENGTH, MARKER_LENGTH, ARUCO_DICT
-)
-
-CAMERAS = [
-    {
-        "name": "cam1",
-        "path": os.path.join(IMAGES_DIR, "cam1/*.jpg"),
-        "is_reference": True,
-    }
-]
-for _i in range(2, CAMERA_COUNT + 1):
-    CAMERAS.append(
-        {
-            "name": f"cam{_i}",
-            "path": os.path.join(IMAGES_DIR, f"cam{_i}/*.jpg"),
-            "is_reference": False,
-        }
-    )
-
-
-def detect_corners(cam_config):
-    """Detects ChArUco corners for a single camera, with a live visual review window."""
-    name = cam_config["name"]
-    path = cam_config["path"]
-    print(INFO + f"[{name}] Scanning {path}...")
-
-    images = sorted(glob.glob(path))
-    if not images:
-        print(ERROR + f"Error: No images found for {name}!")
-        return None
-
-    data_dict = {}
-    all_corners = []
-    all_ids = []
-    img_shape = None
-
-    window_name = f"Detection View: {name}"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 1280, 720)
-
-    for fname in images:
-        img = cv2.imread(fname)
-        if img is None:
-            continue
-
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        if img_shape is None:
-            img_shape = gray.shape[::-1]
-
-        # detect raw markers
-        corners, ids, _ = cv2.aruco.detectMarkers(gray, ARUCO_DICT)
-
-        # prepare visualization
-        vis_img = img.copy()
-        status_text = "Rejected (No Markers)"
-        text_color = (0, 0, 255)  # Red
-
-        if len(corners) > 0:
-            cv2.aruco.drawDetectedMarkers(vis_img, corners)
-
-            ret, char_corners, char_ids = cv2.aruco.interpolateCornersCharuco(
-                markerCorners=corners, markerIds=ids, image=gray, board=CHARUCO_BOARD
-            )
-
-            if ret > 6:
-                all_corners.append(char_corners)
-                all_ids.append(char_ids)
-
-                key = os.path.basename(fname)
-                data_dict[key] = (char_corners, char_ids)
-
-                cv2.aruco.drawDetectedCornersCharuco(
-                    image=vis_img,
-                    charucoCorners=char_corners,
-                    charucoIds=char_ids,
-                    cornerColor=(0, 255, 0),
-                )
-
-                status_text = f"Accepted ({ret} pts)"
-                text_color = (0, 255, 0)  # Green
-            else:
-                status_text = f"Rejected (Only {ret} pts)"
-
-        cv2.putText(
-            img=vis_img,
-            text=f"{os.path.basename(fname)}",
-            org=(20, 50),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=text_color,
-            thickness=2,
-        )
-        cv2.putText(
-            img=vis_img,
-            text=status_text,
-            org=(20, 100),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=0.8,
-            color=text_color,
-            thickness=2,
-        )
-
-        cv2.imshow(window_name, vis_img)
-
-        # wait 100ms for each frame. Press 'ESC' to skip this camera.
-        wait_key = cv2.waitKey(100)
-        if wait_key == 27:  # ESC key
-            print(DEBUG + f"[{name}] Skipping visualization...")
-            break
-
-    cv2.destroyWindow(window_name)
-
-    if img_shape is None:
-        print(ERROR + f"CRITICAL ERROR in {name}: Image shape could not be determined!")
-        exit()
-
-    print(
-        SUCCESS
-        + f"[{name}] Found {len(all_corners)} valid frames. Resolution: {img_shape}"
-    )
-    return {
-        "data_dict": data_dict,
-        "all_corners": all_corners,
-        "all_ids": all_ids,
-        "shape": img_shape,
-    }
-# ========== calibration shared helpers end ==========
 
 
 # ========== pose estimation ==========
@@ -253,10 +105,12 @@ def detect_corners(cam_config):
     # ),
 # INPUT_DIR = "synchronized_videos"
 
+INPUT_DIR = "synchronized_mahidol"
+
 VIDEO_PATHS = [
     os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' , f'p{P_NO}' ,f'r{ROUND}', 'c1.mp4'),
     os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' ,f'p{P_NO}' ,f'r{ROUND}', 'c2.mp4'),
-    # os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' , f'p{P_NO}' ,f'r{ROUND}', 'c3.mp4')
+    os.path.join(INPUT_DIR, f'{DAY:02d}-{MONTH:02d}' , f'p{P_NO}' ,f'r{ROUND}', 'c3.mp4')
 
     # os.path.join(
     #     INPUT_DIR, f"{SUBJECT_NAME}/{ROUND}", f"{SUBJECT_NAME}_{ROUND}_AILab1.avi"
@@ -275,21 +129,20 @@ VIDEO_PATHS = [
 FPS_ANALYSIS = 25
 ROBUST_TRIANGULATION = True
 
-# OUTPUT_DIR = "output"
-# OUTPUT_DIR  = 'output_mahidol/skeleton'
 
-OUTPUT_DIR = os.path.join(_cfg['output_dir'], 'skeleton')
+# OUTPUT_DIR = "output"
+OUTPUT_DIR  = 'output_mahidol/skeleton'
 
 # OUTPUT_CSV = os.path.join(OUTPUT_DIR, f"{SUBJECT_NAME}_skeleton_{ROUND}.csv")
 OUTPUT_CSV =  os.path.join(OUTPUT_DIR, f'{DAY:02d}-{MONTH:02d}_{SUBJECT_NAME}_p{P_NO}_r{ROUND}.csv')
 
+# CALIBRATION_FILE = os.path.join(
+#     INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz"
+# )
+
 CALIBRATION_FILE = os.path.join(
     INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}_{DAY:02d}_{MONTH:02d}.npz"
 )
-
-# CALIBRATION_FILE = os.path.join(
-#     INPUT_DIR, f"multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}_08_06.npz"
-# )
 
 MODEL_ALIAS = "rtmpose-l-wholebody"
 

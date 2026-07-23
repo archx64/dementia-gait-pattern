@@ -2,7 +2,7 @@ import os
 import re
 from src.copy_frames import DESTINATION_DIRECTORY
 
-def rename_image_sequence(directory, prefix="frame_"):
+def rename_image_sequence(directory, prefix):
     # Find all files in the target directory
     files = os.listdir(directory)
     
@@ -51,7 +51,7 @@ def rename_image_sequence(directory, prefix="frame_"):
 # TARGET_DIRECTORY = r"C:\path\to\your\destination\folder"
 
 def main():
-    rename_image_sequence(DESTINATION_DIRECTORY)
+    rename_image_sequence(DESTINATION_DIRECTORY, prefix="frame_")
 
 if __name__ == "__main__":
     main()

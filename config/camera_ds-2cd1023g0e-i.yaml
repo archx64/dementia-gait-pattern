@@ -1,0 +1,65 @@
+# Hikvision DS-2CD1023G0E-I — 2 MP Fixed Bullet Network Camera
+# Used at: Mahidol hospital (session.yaml input_dir: synchronized_mahidol)
+# Source: DS-2CD1023G0E-I_Datasheet_20260409.pdf
+
+model: DS-2CD1023G0E-I
+site: mahidol
+input_dir: synchronized_mahidol
+
+camera:
+  image_sensor: 1/2.7" Progressive Scan CMOS
+  max_resolution: [1920, 1080]
+  min_illumination:
+    color: 0.01 Lux @ (F2.0, AGC ON)
+    bw: 0 Lux with IR
+  shutter_time: 1/3 s to 1/100,000 s
+  day_night: IR cut filter
+
+lens:
+  type: fixed focal
+  mount: M12
+  iris: fixed
+  aperture: F2.0
+  installed_focal_length_mm: 2.8   # both 2.8 and 4 mm variants exist; ours is 2.8
+  options:
+    - focal_length_mm: 2.8
+      fov_deg: {horizontal: 112.1, vertical: 60.0, diagonal: 132.2}
+    - focal_length_mm: 4.0
+      fov_deg: {horizontal: 90.2, vertical: 48.6, diagonal: 107.6}
+
+illuminator:
+  type: [IR]   # EXIR 2.0
+  range_m: 30
+  ir_wavelength_nm: 850
+
+video:
+  main_stream:
+    50hz: ["25 fps (1920x1080, 1280x720)"]
+    60hz: ["30 fps (1920x1080, 1280x720)"]
+  compression: [H.265+, H.265, H.264+, H.264]
+  wdr: Digital WDR (DWDR)
+  snr_db: ">= 52"
+
+audio:
+  built_in_microphone: false
+
+general:
+  power: 12 VDC / PoE 802.3af, max 6.5 W
+  protection: IP67
+  dimensions_mm: [177.6, 66.2, 67.8]
+  weight_g: 270
+
+# ---------------------------------------------------------------------------
+# DERIVED values (NOT from the datasheet) — used only for the informational
+# focal-length sanity check in calibrate_intrinsics.py, never as a solver
+# constraint. Sensor mm size approximated from the nominal 1/2.7" optical
+# format diagonal (~6.72 mm) assuming a 16:9 active area; exact active-area /
+# pixel-pitch figures are not published, so expect ~1-2% uncertainty.
+derived:
+  sensor_width_mm: 5.86
+  sensor_height_mm: 3.29
+  expected_focal_px_at_max_resolution:   # f_mm * resolution_px / sensor_mm
+    fx: 917.4
+    fy: 919.1
+  # No ChArUco cross-check run yet for this site — calibrate with
+  # input_dir: synchronized_mahidol in session.yaml to produce one.

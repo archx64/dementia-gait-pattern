@@ -325,7 +325,7 @@ def main():
     print("\n# Gait Cycle Parameters")
     print(params_df.to_markdown(index=True))
 
-    gait_out = "output_mahidol/gait"
+    gait_out = "output_phramongkut/gait"
     os.makedirs(gait_out, exist_ok=True)
     save_path = os.path.join(gait_out, f"{DAY}-{MONTH}_{SUBJECT_NAME}_p{P_NO}_r{ROUND}_gait.csv")
     params_df.to_csv(save_path, index=False)

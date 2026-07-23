@@ -1,0 +1,67 @@
+# Hikvision DS-2CD1043G2-LIU(F) — 4 MP Fixed Bullet Network Camera
+# Used at: Phramongkut hospital (session.yaml input_dir: synchronized_phramongkut)
+# Source: DS-2CD1043G2-LIUF_Datasheet_20230914.pdf
+
+model: DS-2CD1043G2-LIU(F)
+site: phramongkut
+input_dir: synchronized_phramongkut
+
+camera:
+  image_sensor: 1/3" Progressive Scan CMOS
+  max_resolution: [2560, 1440]
+  min_illumination:
+    color: 0.005 Lux @ (F1.6, AGC ON)
+    bw: 0 Lux with IR
+  shutter_time: 1/3 s to 1/100,000 s
+  day_night: IR cut filter
+
+lens:
+  type: fixed focal
+  mount: M12
+  iris: fixed
+  aperture: F1.6
+  installed_focal_length_mm: 2.8   # both 2.8 and 4 mm variants exist; ours is 2.8
+  options:
+    - focal_length_mm: 2.8
+      fov_deg: {horizontal: 98, vertical: 54, diagonal: 114}
+      dori_m: {detect: 63, observe: 25, recognize: 12, identify: 6}
+    - focal_length_mm: 4.0
+      fov_deg: {horizontal: 78, vertical: 42, diagonal: 93}
+      dori_m: {detect: 78, observe: 31, recognize: 15, identify: 7}
+
+illuminator:
+  type: [IR, White Light]   # Smart Hybrid Light
+  range_m: 30
+  ir_wavelength_nm: 850
+
+video:
+  main_stream:
+    50hz: ["20 fps (2560x1440)", "25 fps (1920x1080, 1280x720)"]
+    60hz: ["20 fps (2560x1440)", "24 fps (1920x1080, 1280x720)"]
+  compression: [H.265+, H.265, H.264+, H.264]
+  wdr_db: 120
+  snr_db: ">= 52"
+
+audio:
+  built_in_microphone: true
+
+general:
+  power: 12 VDC / PoE 802.3af, max 6.5 W
+  protection: IP67
+  dimensions_mm: [170.8, 66.0, 69.1]
+  weight_g: 270
+
+# ---------------------------------------------------------------------------
+# DERIVED values (NOT from the datasheet) — used only for the informational
+# focal-length sanity check in calibrate_intrinsics.py, never as a solver
+# constraint. Sensor mm size approximated from the nominal 1/3" optical
+# format diagonal (~6.0 mm) assuming a 16:9 active area; exact active-area /
+# pixel-pitch figures are not published, so expect ~1-2% uncertainty.
+derived:
+  sensor_width_mm: 5.23
+  sensor_height_mm: 2.94
+  expected_focal_px_at_max_resolution:   # f_mm * resolution_px / sensor_mm
+    fx: 1370.6
+    fy: 1371.4
+  # Empirical cross-check (ChArUco free solve, calibration_2_cam_02_06):
+  #   cam1 fx=1394.2 fy=1372.3 (RMSE 0.386), cam2 fx=1435.4 fy=1405.3 (RMSE 0.682)

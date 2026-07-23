@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project Scope — Gait Pattern Analysis</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #F5F8FB;
+    --surface:   #E4EDF4;
+    --border:    #C2D3DF;
+    --text:      #0E1C2B;
+    --muted:     #5A7A8E;
+    --accent:    #1A5C8A;
+    --accent2:   #4A9DC4;
+    --rule:      #8AABBD;
+    --mono:      'Courier New', 'Courier', monospace;
+    --serif:     'Palatino Linotype', 'Palatino', 'Book Antiqua', 'Georgia', serif;
+    --sans:      system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  html { font-size: 16px; background: var(--bg); color: var(--text); }
+
+  body {
+    font-family: var(--sans);
+    line-height: 1.65;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 64px 40px 96px;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  .doc-header {
+    border-top: 3px solid var(--accent);
+    padding-top: 32px;
+    margin-bottom: 48px;
+  }
+
+  .doc-eyebrow {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 14px;
+  }
+
+  .doc-title {
+    font-family: var(--serif);
+    font-size: clamp(26px, 4vw, 36px);
+    font-weight: normal;
+    line-height: 1.2;
+    color: var(--text);
+    text-wrap: balance;
+    max-width: 640px;
+    margin-bottom: 20px;
+  }
+
+  .doc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    font-size: 13px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+  }
+
+  .doc-meta span strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  /* ── Section layout ──────────────────────────────────── */
+  .section {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0 40px;
+    margin-bottom: 48px;
+    padding-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section:last-of-type { border-bottom: none; margin-bottom: 0; }
+
+  .section-label {
+    font-family: var(--serif);
+    font-size: 11px;
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    font-weight: normal;
+    padding-top: 4px;
+    text-transform: lowercase;
+    line-height: 1.4;
+  }
+
+  .section-body { min-width: 0; }
+
+  .section-body h2 {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: normal;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .section-body h3 {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 20px 0 10px;
+  }
+
+  .section-body h3:first-of-type { margin-top: 4px; }
+
+  .section-body p {
+    font-size: 15px;
+    color: var(--text);
+    margin-bottom: 12px;
+    max-width: 60ch;
+  }
+
+  .section-body p:last-child { margin-bottom: 0; }
+
+  /* ── Pipeline diagram ────────────────────────────────── */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 8px;
+  }
+
+  .pipeline-stage {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 0 16px;
+    align-items: start;
+    padding: 16px 20px 16px 0;
+    border-left: 3px solid var(--border);
+    padding-left: 20px;
+    position: relative;
+  }
+
+  .pipeline-stage.active { border-left-color: var(--accent); }
+
+  .stage-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding-top: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* .stage-content {} */
+
+  .stage-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 3px;
+  }
+
+  .stage-script {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+
+  .stage-desc {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* ── Tag list ────────────────────────────────────────── */
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .tag {
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tag.accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  /* ── Table ───────────────────────────────────────────── */
+  .param-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .param-table col.col-param { width: 26%; }
+  .param-table col.col-unit  { width: 18%; }
+  .param-table col.col-desc  { width: 56%; }
+
+  .param-table thead th {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 2px solid var(--border);
+    padding: 0 12px 8px 0;
+    text-align: left;
+  }
+
+  .param-table tbody td {
+    padding: 6px 12px 6px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  .param-table td:first-child {
+    padding-left: 0;
+  }
+
+  .param-table tbody tr:last-child td { border-bottom: none; }
+
+  .param-table td:first-child {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    white-space: normal;
+    padding-right: 10px;
+    word-break: break-word;
+  }
+
+  .unit {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  /* ── Conditions grid ─────────────────────────────────── */
+  .conditions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+    margin-bottom: 20px;
+  }
+
+  .condition-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    border-radius: 4px;
+  }
+
+  .condition-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .condition-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* ── Out-of-scope list ───────────────────────────────── */
+  .out-list {
+    list-style: none;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .out-list li {
+    font-size: 14px;
+    padding-left: 18px;
+    position: relative;
+    color: var(--text);
+  }
+
+  .out-list li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--rule);
+  }
+
+  /* ── Deliverables list ───────────────────────────────── */
+  .deliverables {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .deliverable {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    font-size: 14px;
+  }
+
+  .deliverable-file {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    border-radius: 3px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .deliverable-desc { color: var(--text); padding-top: 2px; }
+
+  /* ── Responsive ──────────────────────────────────────── */
+  @media (max-width: 620px) {
+    body { padding: 36px 20px 64px; }
+    .section { grid-template-columns: 1fr; gap: 6px; }
+    .section-label { margin-bottom: 4px; }
+  }
+
+  /* ── Print: keep each section intact on one page ─────── */
+  @media print {
+    .section {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+  }
+</style>
+</head>
+<body>
+<header class="doc-header">
+  <p class="doc-eyebrow">Research Project · Scope Document</p>
+  <h1 class="doc-title">Gait Pattern Analysis using Multiview Computer Vision</h1>
+  <div class="doc-meta">
+    <span><strong>Institutions</strong> Asian Institute of Technology &amp; Mahidol University Hospital</span>
+    <span><strong>Participants</strong> 15 subjects (AIT 01–15)</span>
+    <span><strong>Data collection</strong> March – April 2025</span>
+    <span><strong>Version</strong> 1.0</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="section">
+    <p class="section-label">background</p>
+    <div class="section-body">
+      <h2>Research Motivation</h2>
+      <p>Gait patterns carry rich information about human movement, balance, and motor control. Changes in walking speed, stride symmetry, and step timing can reflect how a person's movement evolves over time, making gait a useful signal across a wide range of movement-science and rehabilitation applications.</p>
+      <p>Marker-based motion capture systems (e.g., Vicon) remain the reference standard for gait measurement but require dedicated lab space, specialized markers, and expensive hardware. This project develops and validates a markerless, multi-camera alternative that can be deployed in ordinary rooms without specialized infrastructure.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">objectives</p>
+    <div class="section-body">
+      <h2>Project Goals</h2>
+      <p>Design, implement, and validate a markerless 3D gait analysis pipeline that extracts gait cycle parameters from synchronized video recordings across multiple walking conditions.</p>
+      <p>Validate extracted parameters against a Vicon motion capture ground truth across 15 participants and five walking conditions, assessing accuracy and repeatability against the reference system.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">pipeline</p>
+    <div class="section-body">
+      <h2>Four-Stage Processing Pipeline</h2>
+      <div class="pipeline">
+
+        <div class="pipeline-stage active">
+          <span class="stage-num">01</span>
+          <div class="stage-content">
+            <div class="stage-name">Synchronized Multi-Camera Capture</div>
+            <div class="stage-script">multiview_capture.py</div>
+            <div class="stage-desc">Three RTSP cameras record simultaneously using threaded capture. ChArUco calibration images are collected in the same session. A dedicated floor.jpg image is captured for geometric floor alignment.</div>
+          </div>
+        </div>
+
+        <div class="pipeline-stage active">
+          <span class="stage-num">02</span>
+          <div class="stage-content">
+            <div class="stage-name">Camera Calibration &amp; Floor Alignment</div>
+            <div class="stage-script">calibrate_multiview.py</div>
+            <div class="stage-desc">Intrinsic and extrinsic parameters are solved per camera via ChArUco stereo calibration. A visual floor alignment rotation matrix is estimated from the floor board pose and saved per-date into a .npz calibration file.</div>
+          </div>
+        </div>
+
+        <div class="pipeline-stage active">
+          <span class="stage-num">03</span>
+          <div class="stage-content">
+            <div class="stage-name">3D Whole-Body Pose Estimation</div>
+            <div class="stage-script">pose_estimation.py</div>
+            <div class="stage-desc">MMPose RTMW-x detects 133 whole-body keypoints per frame across all camera views. Joints are triangulated into 3D space using RANSAC-style robust multi-view DLT. Floor alignment and One Euro filtering are applied to produce smooth, gravity-corrected skeleton sequences, output as per-round CSV files.</div>
+          </div>
+        </div>
+
+        <div class="pipeline-stage active">
+          <span class="stage-num">04</span>
+          <div class="stage-content">
+            <div class="stage-name">Gait Parameter Extraction</div>
+            <div class="stage-script">gait_analysis.py</div>
+            <div class="stage-desc">Heel strike and toe-off events are detected from the 3D heel trajectories. Thirteen gait cycle parameters are computed bilaterally (left and right) from the detected events and saved per subject per round.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">gait parameters</p>
+    <div class="section-body">
+      <h2>13 Extracted Parameters per Foot</h2>
+      <table class="param-table">
+        <colgroup>
+          <col class="col-param">
+          <col class="col-unit">
+          <col class="col-desc">
+        </colgroup>
+        <thead>
+          <tr><th>Parameter</th><th>Unit</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Cadence</td><td class="unit">steps/min</td><td>Step rate; derived from stride time</td></tr>
+          <tr><td>Walking Speed</td><td class="unit">m/s</td><td>Stride length divided by stride time</td></tr>
+          <tr><td>Stride Time</td><td class="unit">s</td><td>Duration of one full gait cycle (heel strike to heel strike, same foot)</td></tr>
+          <tr><td>Step Time</td><td class="unit">s</td><td>Time between consecutive heel strikes of opposite feet</td></tr>
+          <tr><td>Opposite Foot Off</td><td class="unit">% cycle</td><td>Moment the contralateral foot leaves the ground (~10–12%)</td></tr>
+          <tr><td>Opposite Foot Contact</td><td class="unit">% cycle</td><td>Moment the contralateral foot strikes the ground (~50%)</td></tr>
+          <tr><td>Foot Off</td><td class="unit">% cycle</td><td>Toe-off of the reference foot; end of stance phase (~60–62%)</td></tr>
+          <tr><td>Single Support</td><td class="unit">s</td><td>Duration with only the reference limb bearing weight</td></tr>
+          <tr><td>Double Support</td><td class="unit">s</td><td>Combined duration with both feet in contact with ground</td></tr>
+          <tr><td>Stride Length</td><td class="unit">m</td><td>Distance between successive heel strikes of the same foot</td></tr>
+          <tr><td>Step Length</td><td class="unit">m</td><td>Anterior–posterior distance between consecutive heel strikes</td></tr>
+          <tr><td>Step Width</td><td class="unit">m</td><td>Medial–lateral distance between consecutive heel strikes</td></tr>
+          <tr><td>Limp Index</td><td class="unit">ratio</td><td>Stance/swing duration ratio; higher values indicate greater asymmetry</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">data scope</p>
+    <div class="section-body">
+      <h2>Participants &amp; Walking Conditions</h2>
+
+      <h3>Mahidol University Hospital · 31 March &amp; 1 April 2025</h3>
+      <p>15 participants completed up to 20 rounds per session across five standardised walking conditions, recorded simultaneously with a Vicon motion capture system for ground truth comparison.</p>
+      <div class="conditions">
+        <div class="condition-card">
+          <div class="condition-name">Comfortable</div>
+          <div class="condition-desc">Self-selected walking speed; baseline condition</div>
+        </div>
+        <div class="condition-card">
+          <div class="condition-name">Fast</div>
+          <div class="condition-desc">Instructed maximum safe walking speed</div>
+        </div>
+        <div class="condition-card">
+          <div class="condition-name">Comfortable Dual</div>
+          <div class="condition-desc">Comfortable pace with concurrent cognitive task</div>
+        </div>
+        <div class="condition-card">
+          <div class="condition-name">Fast Dual</div>
+          <div class="condition-desc">Fast pace with concurrent cognitive task</div>
+        </div>
+        <div class="condition-card">
+          <div class="condition-name">TUG</div>
+          <div class="condition-desc">Timed Up and Go; stand, walk 3 m, return</div>
+        </div>
+      </div>
+
+      <h3>AI Center Lab · Internal Collection</h3>
+      <p>An additional internal dataset was collected within the AI Center laboratory environment. Each participant completed 5 TUG rounds, recorded under the same three-camera setup. This dataset serves as a controlled-environment complement to the hospital data, enabling comparison across collection sites.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">technical scope</p>
+    <div class="section-body">
+      <h2>System &amp; Methods</h2>
+      <div class="tag-list">
+        <span class="tag">3 × RTSP cameras</span>
+        <span class="tag">ChArUco A0 board calibration</span>
+        <span class="tag accent">MMPose RTMW-x · 133 keypoints</span>
+        <span class="tag">RANSAC multi-view triangulation</span>
+        <span class="tag">PCA floor alignment</span>
+        <span class="tag">One Euro Filter smoothing</span>
+        <span class="tag">Python · OpenCV · NumPy</span>
+        <span class="tag">CUDA inference</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">validation</p>
+    <div class="section-body">
+      <h2>Ground Truth Comparison</h2>
+      <p>All walking trials were recorded simultaneously with a Vicon optical motion capture system, providing marker-based ground truth for all 13 gait parameters across both sides and all five conditions.</p>
+      <p>Validation metrics include mean absolute error, Pearson correlation, and Bland–Altman analysis for each parameter, assessed per condition and aggregated across participants.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">deliverables</p>
+    <div class="section-body">
+      <h2>Project Outputs</h2>
+      <div class="deliverables">
+        <div class="deliverable">
+          <span class="deliverable-file">*.npz</span>
+          <span class="deliverable-desc">Per-date, per-camera calibration files (intrinsics, extrinsics, floor rotation matrix)</span>
+        </div>
+        <div class="deliverable">
+          <span class="deliverable-file">*_skeleton_*.csv</span>
+          <span class="deliverable-desc">Per-round, per-subject 3D skeleton sequences — 133 keypoints × N frames</span>
+        </div>
+        <div class="deliverable">
+          <span class="deliverable-file">*_gait_*.csv</span>
+          <span class="deliverable-desc">Per-round gait parameter tables — 13 parameters × 2 sides, ready for statistical analysis</span>
+        </div>
+        <div class="deliverable">
+          <span class="deliverable-file">mahidol_vicon/*.csv</span>
+          <span class="deliverable-desc">Extracted Vicon ground truth parameters in matched format for direct comparison</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-label">out of scope</p>
+    <div class="section-body">
+      <h2>Explicit Exclusions</h2>
+      <ul class="out-list">
+        <li>Clinical diagnosis or disease classification of any kind — the system produces gait measurements only</li>
+        <li>Real-time processing — the pipeline is designed for offline batch analysis</li>
+        <li>Single-camera or monocular depth estimation approaches</li>
+        <li>Wearable sensor integration (IMU, pressure insoles)</li>
+        <li>Automatic participant detection — a trained operator selects the subject on the first frame</li>
+        <li>Crowd or multi-person tracking — one subject per recording session</li>
+      </ul>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>

@@ -1,6 +1,10 @@
-day: 1
-month: 4
-p_no: 3
-round: 20
-subject_name: 08-Wanna
-total_rounds: 20
+alignment_method: pca
+camera_count: 2
+day: 17
+input_dir: synchronized_meeting
+month: 7
+p_no: 1
+round: 1
+subject_name: "Man"
+total_rounds: 1
+output_dir: output_meeting

@@ -1,10 +1,6 @@
-import os, glob, cv2, json
+import os, cv2, json
 import numpy as np
 from src.utils_floor_align import (
-    SQUARES_X,
-    SQUARES_Y,
-    SQUARES_LENGTH,
-    MARKER_LENGTH,
     IMAGES_DIR,
     ERROR,
     SUCCESS,
@@ -12,42 +8,45 @@ from src.utils_floor_align import (
     INFO,
     WARNING,
     CALIBRATION_FILE,
+    INTRINSICS_FILE,
     CAMERA_COUNT,
+    CAMERAS,
+    ARUCO_DICT,
+    CHARUCO_BOARD,
+    detect_corners,
 )
 
-aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
-board = cv2.aruco.CharucoBoard(
-    (SQUARES_X, SQUARES_Y), SQUARES_LENGTH, MARKER_LENGTH, aruco_dict
-)
-
-CAMERAS = [
-    {
-        "name": "cam1",
-        "path": os.path.join(IMAGES_DIR, "cam1/*.jpg"),
-        "is_reference": True,
-    }
-]
-
-
-for i in range(2, CAMERA_COUNT + 1):
-    CAMERAS.append(
-        {
-            "name": f"cam{i}",
-            "path": os.path.join(IMAGES_DIR, f"cam{i}/*.jpg"),
-            "is_reference": False,
-        }
-    )
-    # image_dirs[f"cam{i+1}"] = os.path.join(IMAGES_DIR, f"cam{i+1}/*.jpg")
-
-# CAMERAS.append(
-#     {
-#         "name": f"cam{CAMERA_COUNT+1}",
-#         "path": os.path.join(IMAGES_DIR, f"cam{CAMERA_COUNT+1}/*.jpg"),
-#         "is_reference": False,
-#     }
-# )
+aruco_dict = ARUCO_DICT
+board = CHARUCO_BOARD
 
 print(json.dumps(CAMERAS, indent=4))
+
+
+def load_intrinsics():
+    """Loads the one-time intrinsics solved by calibrate_intrinsics.py."""
+    if not os.path.exists(INTRINSICS_FILE):
+        print(
+            ERROR
+            + f"Intrinsics file not found: {INTRINSICS_FILE}\n"
+            + "Run `python -m src.calibrate_intrinsics` once before this script."
+        )
+        exit()
+
+    npz = np.load(INTRINSICS_FILE)
+    intrinsics = {}
+    for cam in CAMERAS:
+        name = cam["name"]
+        if f"{name}_K" not in npz:
+            print(ERROR + f"Intrinsics for '{name}' missing from {INTRINSICS_FILE}. "
+                          f"Re-run calibrate_intrinsics.py with this camera included.")
+            exit()
+        intrinsics[name] = {
+            "K": npz[f"{name}_K"],
+            "D": npz[f"{name}_D"],
+            "shape": tuple(npz[f"{name}_shape"]),
+            "rmse": float(npz[f"{name}_rmse"]),
+        }
+    return intrinsics
 
 
 def calculate_visual_floor(ref_cam_name, K, D):
@@ -108,121 +107,6 @@ def calculate_visual_floor(ref_cam_name, K, D):
     return R_align
 
 
-def detect_corners(cam_config):
-    """Detects ChArUco corners for a single camera"""
-    name = cam_config["name"]
-    path = cam_config["path"]
-    print(INFO + f"[{name}] Scanning {path}...")
-
-    images = sorted(glob.glob(path))
-    if not images:
-        print(ERROR + f"Error: No images found for {name}!")
-        return None
-
-    data_dict = {}
-    all_corners = []
-    all_ids = []
-    img_shape = None
-
-    # create a window
-    window_name = f"Detection View: {name}"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 1280, 720)  # set window size to managable size
-
-    for fname in images:
-        img = cv2.imread(fname)
-        if img is None:
-            continue
-
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        if img_shape is None:
-            img_shape = gray.shape[::-1]
-
-        # detect raw markers
-        corners, ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict)
-
-        # prepare visualization
-        vis_img = img.copy()
-        status_text = "Rejected (No Markers)"
-        text_color = (0, 0, 255)  # Red
-
-        if len(corners) > 0:
-            # draw detected raw markers
-            cv2.aruco.drawDetectedMarkers(vis_img, corners)
-
-            # refine (interpolation)
-            ret, char_corners, char_ids = cv2.aruco.interpolateCornersCharuco(
-                markerCorners=corners, markerIds=ids, image=gray, board=board
-            )
-
-            if ret > 6:
-                all_corners.append(char_corners)
-                all_ids.append(char_ids)
-
-                key = os.path.basename(fname)
-                data_dict[key] = (char_corners, char_ids)
-
-                # draw refined corners (green dots + IDs)
-                cv2.aruco.drawDetectedCornersCharuco(
-                    image=vis_img,
-                    charucoCorners=char_corners,
-                    charucoIds=char_ids,
-                    cornerColor=(0, 255, 0),
-                )
-
-                status_text = f"Accepted ({ret} pts)"
-                text_color = (0, 255, 0)  # Green
-            else:
-                status_text = f"Rejected (Only {ret} pts)"
-
-        # draw UI
-        cv2.putText(
-            img=vis_img,
-            text=f"{os.path.basename(fname)}",
-            org=(20, 50),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=1,
-            color=text_color,
-            thickness=2,
-        )
-        cv2.putText(
-            img=vis_img,
-            text=status_text,
-            org=(20, 100),
-            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-            fontScale=0.8,
-            color=text_color,
-            thickness=2,
-        )
-
-        # show window
-        cv2.imshow(window_name, vis_img)
-
-        # wait 100ms for each frame. Press 'ESC' to skip this camera.
-        wait_key = cv2.waitKey(100)
-        if wait_key == 27:  # ESC key
-            print(DEBUG + f"[{name}] Skipping visualization...")
-            break
-
-    cv2.destroyWindow(window_name)
-
-    # safety check
-    if img_shape is None:
-        print(ERROR + f"CRITICAL ERROR in {name}: Image shape could not be determined!")
-        exit()
-
-    print(
-        SUCCESS
-        + f"[{name}] Found {len(all_corners)} valid frames. Resolution: {img_shape}"
-    )
-    return {
-        "data_dict": data_dict,
-        "all_corners": all_corners,
-        "all_ids": all_ids,
-        "shape": img_shape,
-    }
-
-
 def main():
     results = dict()
 
@@ -232,45 +116,23 @@ def main():
             exit()
 
         results[cam["name"]] = res
-        # print(DEBUG + f'data type of results: {type(results)}')
-        # print(DEBUG + f"keys in res: {results.keys()}")
-        # print(DEBUG + f"keys in cam1: {results['cam1']}")
 
-    # let's calibrate intrinsics individually
-    intrinsics = dict()
-    print(INFO + "\nphase1: intrinsic calibration")
+    # intrinsics are solved once by calibrate_intrinsics.py — load, don't re-solve
+    print(INFO + "\nphase 1: loading saved intrinsics")
+    intrinsics = load_intrinsics()
 
     for cam in CAMERAS:
         name = cam["name"]
-        res_name = results[name]
-
-        # print(DEBUG + f"keys in res: {res.keys()}")
-        # print(DEBUG + f"type of res['shape']: {type(res['shape'])}, value of res['shape']: {res['shape']}")
-        # print(DEBUG + f"keys in res['shape']: {res['shape'].keys()}")
-
-        print(INFO + f"solving intrinsics for {name}")
-
-        if len(res_name["all_corners"]) == 0 or len(res_name["all_ids"]) == 0:
+        detected_shape = results[name]["shape"]
+        saved_shape = intrinsics[name]["shape"]
+        if tuple(detected_shape) != tuple(saved_shape):
             print(
-                ERROR
-                + f"not enough valid ChArUco corners found for {name}. Could not calibrate..."
+                WARNING
+                + f"[{name}] current image resolution {detected_shape} does not match "
+                  f"the resolution intrinsics were solved at {saved_shape}. "
+                  "Re-run calibrate_intrinsics.py if the camera/resolution changed."
             )
-            exit()
-
-        inputK = np.array([])
-        inputD = np.array([])
-
-        ret, K, D, _, _ = cv2.aruco.calibrateCameraCharuco(
-            charucoCorners=res_name["all_corners"],
-            charucoIds=res_name["all_ids"],
-            board=board,
-            imageSize=res_name["shape"],
-            cameraMatrix=inputK,
-            distCoeffs=inputD,
-        )
-
-        print(f"RMSE: {ret:.4f}")
-        intrinsics[name] = {"K": K, "D": D, "shape": res["shape"], "rmse": ret}
+        print(INFO + f"[{name}] using saved intrinsics (RMSE {intrinsics[name]['rmse']:.4f})")
 
     # let's calibrate extrinsics
     print(INFO + "\nphase 2: extrinsic stereo calibration")
