@@ -1,0 +1,34 @@
+[
+    {
+        "name": "cam1",
+        "path": "calibration_2_cam_17_07/cam1/*.jpg",
+        "is_reference": true
+    },
+    {
+        "name": "cam2",
+        "path": "calibration_2_cam_17_07/cam2/*.jpg",
+        "is_reference": false
+    }
+]
+[cam1] Scanning calibration_2_cam_17_07/cam1/*.jpg...
+[cam1] Found 53 valid frames. Resolution: (1920, 1080)
+[cam2] Scanning calibration_2_cam_17_07/cam2/*.jpg...
+[cam2] Found 53 valid frames. Resolution: (1920, 1080)
+
+phase1: intrinsic calibration
+solving intrinsics for cam1
+RMSE: 0.2948
+solving intrinsics for cam2
+RMSE: 0.2461
+
+phase 2: extrinsic stereo calibration
+syncing cam1 <-> cam2 ...
+using 53 common frames
+solving stereo geometry...
+stereo rmse: 0.4462
+pos: [[ 0.53529759  0.03148109 -0.06222201]]
+
+ phase 3: floor alignment
+No 'floor.jpg' found in cam1 folder. Skipping floor alignment.
+
+saved all parameters to synchronized_meeting/multicam_calibration_2_A0_17_07.npz

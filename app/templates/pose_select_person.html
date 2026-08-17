@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Select person{% endblock %}
+{% block content %}
+<h1>Click the target person — round {{ round }}</h1>
+<p>Click their bounding box in the image below, then confirm. Re-select carefully: other patients
+   or staff may appear in the frame, and this selection is only used for this one round.</p>
+<div class="image-select-wrap">
+  <img id="preview-img" src="/sessions/{{ session.id }}/rounds/{{ round }}/pose/preview_image" alt="Frame 0 preview">
+</div>
+<form id="select-form" method="post" action="/sessions/{{ session.id }}/rounds/{{ round }}/pose/run">
+  <input type="hidden" name="click_x" id="click_x">
+  <input type="hidden" name="click_y" id="click_y">
+  <button type="submit" class="button" id="confirm-btn" disabled>Confirm &amp; run pose estimation</button>
+</form>
+<script src="/static/person_select.js"></script>
+{% endblock %}

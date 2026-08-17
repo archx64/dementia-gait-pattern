@@ -5,7 +5,10 @@ from colorama import Back, Fore, Style, init
 
 warnings.filterwarnings("ignore")
 
-_SESSION_YAML = os.path.join("config", "session.yaml")
+# Overridable so the web app (app/jobs.py) can point pipeline subprocesses at
+# a generated config it owns, without ever touching the tracked
+# config/session.yaml a CLI user might be hand-editing.
+_SESSION_YAML = os.environ.get("SESSION_YAML_PATH", os.path.join("config", "session.yaml"))
 with open(_SESSION_YAML) as _f:
     _cfg = yaml.safe_load(_f)
 
@@ -317,6 +320,41 @@ header = ["frame_idx", "total_distance_m"]
 
 # ========== classes for pose estimation start ==========
 
+
+def draw_person_boxes(image, results):
+    """Draws each detected person's bbox + index label on a copy of `image`.
+    Returns (annotated_image, bboxes) where bboxes[i] = (x1, y1, x2, y2) --
+    shared by the interactive PersonSelector UI and the headless/web preview
+    path (see pose_estimation.py's PREVIEW_ONLY mode)."""
+    img_copy = image.copy()
+    bboxes = []
+    for i, p in enumerate(results):
+        bbox = p["bbox"][0]
+        x1, y1, x2, y2 = map(int, bbox[:4])
+        bboxes.append((x1, y1, x2, y2))
+        cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(
+            img_copy,
+            f"P{i}",
+            (x1, y1 - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.9,
+            (0, 255, 0),
+            2,
+        )
+    return img_copy, bboxes
+
+
+def hit_test_bboxes(bboxes, point):
+    """Returns the index of the bbox containing `point` (cx, cy), or 0 if
+    none match -- the same fallback select_person() has always used."""
+    cx, cy = point
+    for i, (x1, y1, x2, y2) in enumerate(bboxes):
+        if x1 <= cx <= x2 and y1 <= cy <= y2:
+            return i
+    return 0
+
+
 SELECT_WINDOW = "Select Person"
 
 
@@ -329,22 +367,7 @@ class PersonSelector:
             self.selected_point = (x, y)
 
     def select_person(self, image, results):
-        img_copy = image.copy()
-        bboxes = []
-        for i, p in enumerate(results):
-            bbox = p["bbox"][0]
-            x1, y1, x2, y2 = map(int, bbox[:4])
-            bboxes.append((x1, y1, x2, y2))
-            cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(
-                img_copy,
-                f"P{i}",
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.9,
-                (0, 255, 0),
-                2,
-            )
+        img_copy, bboxes = draw_person_boxes(image, results)
 
         cv2.namedWindow(SELECT_WINDOW)
         cv2.setMouseCallback(SELECT_WINDOW, self.mouse_callback)
@@ -359,11 +382,7 @@ class PersonSelector:
                 break
         cv2.destroyWindow(SELECT_WINDOW)
 
-        cx, cy = self.selected_point
-        for i, (x1, y1, x2, y2) in enumerate(bboxes):
-            if x1 <= cx <= x2 and y1 <= cy <= y2:
-                return i
-        return 0
+        return hit_test_bboxes(bboxes, self.selected_point)
 
     def match_person(self, ref_kpts, candidates, triangulator, ref_cam, tgt_cam):
         if not candidates:

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Upload round {{ round }} videos{% endblock %}
+{% block content %}
+<h1>Upload videos — round {{ round }}</h1>
+<p>Session: {{ session.subject_name }} — {{ "%02d"|format(session.day) }}-{{ "%02d"|format(session.month) }},
+   p{{ session.p_no }}</p>
+
+<form method="post" action="/sessions/{{ session.id }}/rounds/{{ round }}/upload"
+      enctype="multipart/form-data" class="form">
+  {% for i in camera_range %}
+  <label>Camera {{ i }} video (c{{ i }}.mp4)
+    <input type="file" name="cam{{ i }}_video" accept="video/mp4" required>
+  </label>
+  {% endfor %}
+  <button type="submit" class="button">Upload round {{ round }}</button>
+</form>
+<p><a href="/sessions/{{ session.id }}">Back to session</a></p>
+{% endblock %}

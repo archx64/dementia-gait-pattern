@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ session.subject_name }}{% endblock %}
+{% block content %}
+<h1>{{ session.subject_name }} — {{ "%02d"|format(session.day) }}-{{ "%02d"|format(session.month) }},
+    p{{ session.p_no }}</h1>
+<p class="muted">{{ session.camera_count }} cameras · {{ session.total_rounds }} rounds ·
+   input: <code>{{ session.input_dir }}</code> · output: <code>{{ session.output_dir }}</code> ·
+   alignment: {{ session.alignment_method }}</p>
+
+<section class="actions">
+  <a class="button" href="/sessions/{{ session.id }}/upload">Upload calibration images</a>
+  <form method="post" action="/sessions/{{ session.id }}/calibrate">
+    <button type="submit" class="button">Run Calibration</button>
+  </form>
+  {% if calibration_done %}
+  <a class="button" href="/sessions/{{ session.id }}/download/calibration">Download calibration .npz</a>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Rounds</h2>
+  <p class="muted">Each round needs its own videos and its own click-to-select-person step — a busy
+     hospital hallway means the correct patient has to be re-confirmed every time, not assumed from
+     a previous round.</p>
+  <table class="data-table">
+    <thead><tr><th>Round</th><th>Videos</th><th>Pose Estimation</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for r in rounds %}
+      <tr>
+        <td>{{ r.round }}</td>
+        <td>{{ "Uploaded" if r.video_uploaded else "Not uploaded" }}</td>
+        <td>{{ "Done" if r.pose_done else "Pending" }}</td>
+        <td>
+          {% if not r.video_uploaded %}
+          <a class="button" href="/sessions/{{ session.id }}/rounds/{{ r.round }}/upload">Upload videos</a>
+          {% elif not r.pose_done %}
+          <form method="post" action="/sessions/{{ session.id }}/rounds/{{ r.round }}/pose/preview" style="display:inline">
+            <button type="submit" class="button" {% if not calibration_done %}disabled{% endif %}>Run Pose Estimation</button>
+          </form>
+          {% else %}
+          <a class="button" href="/sessions/{{ session.id }}/rounds/{{ r.round }}/download/skeleton">Download skeleton</a>
+          {% if gait_models %}
+          <form method="post" action="/sessions/{{ session.id }}/rounds/{{ r.round }}/predict" class="form-inline" style="display:inline-flex">
+            <select name="model_id">
+              {% for m in gait_models %}
+              <option value="{{ m.id }}">{{ m.filename }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="button">Predict</button>
+          </form>
+          {% else %}
+          <span class="muted">No gait models uploaded — <a href="/models">upload one</a></span>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Job history</h2>
+  <table class="data-table">
+    <thead><tr><th>Type</th><th>Round</th><th>Status</th><th>Started</th><th>Finished</th><th></th></tr></thead>
+    <tbody>
+    {% for j in jobs %}
+      <tr>
+        <td>{{ j.job_type }}</td>
+        <td>{{ j.round if j.round is not none else "—" }}</td>
+        <td>{{ j.status }}</td>
+        <td>{{ j.started_at }}</td>
+        <td>{{ j.finished_at }}</td>
+        <td><a href="/jobs/{{ j.id }}">View log</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6">No jobs yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

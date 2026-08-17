@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Sessions{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Sessions</h1>
+  <a class="button" href="/sessions/new">New Session</a>
+</div>
+<table class="data-table">
+  <thead>
+    <tr><th>Subject</th><th>Date</th><th>Participant</th><th>Round</th><th>Cameras</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for s in sessions %}
+    <tr>
+      <td>{{ s.subject_name }}</td>
+      <td>{{ "%02d"|format(s.day) }}-{{ "%02d"|format(s.month) }}</td>
+      <td>p{{ s.p_no }}</td>
+      <td>r{{ s.round }}</td>
+      <td>{{ s.camera_count }}</td>
+      <td><a href="/sessions/{{ s.id }}">Open</a></td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6">No sessions yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

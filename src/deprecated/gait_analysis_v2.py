@@ -30,7 +30,7 @@ from src.utils_floor_align import (
     P_NO,
 )
 
-from src.foot_point_mle import ground_plane_from_alignment, estimate_stance_point_mle
+from utils.foot_point_mle import ground_plane_from_alignment, estimate_stance_point_mle
 
 
 class GaitAnalyzer:

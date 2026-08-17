@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Gait Parameters{% endblock %}
+{% block content %}
+<h1>Predicted Gait Parameters</h1>
+{% if session %}
+<p>Session: {{ session.subject_name }} — p{{ session.p_no }} r{{ round }}</p>
+{% else %}
+<p>Source file: {{ source_name }}</p>
+{% endif %}
+<table class="data-table">
+  <thead><tr><th>Context</th><th>Name</th><th>Value</th><th>Units</th></tr></thead>
+  <tbody>
+  {% for row in table %}
+    <tr>
+      <td>{{ row.Context }}</td>
+      <td>{{ row.Name }}</td>
+      <td>{{ "%.3f"|format(row.Value) }}</td>
+      <td>{{ row.Units }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if out_path %}
+<p>Saved to: <code>{{ out_path }}</code></p>
+{% endif %}
+{% if download_url %}
+<p><a class="button" href="{{ download_url }}">Download CSV</a></p>
+{% endif %}
+{% if session %}
+<a href="/sessions/{{ session.id }}" class="button">Back to session</a>
+{% else %}
+<a href="/predict" class="button">Predict another</a>
+{% endif %}
+{% endblock %}

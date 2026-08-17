@@ -1,4 +1,4 @@
-import cv2, os, csv, torch, functools
+import cv2, os, sys, csv, json, torch, functools
 import numpy as np
 from matplotlib import pyplot as plt
 from mmpose.apis import MMPoseInferencer
@@ -27,6 +27,7 @@ from src.utils_floor_align import (
     PersonSelector,
     MultiviewTriangulator,
     interpolate_skeleton,
+    draw_person_boxes,
 )
 
 # rtmw-x whole body model
@@ -124,11 +125,14 @@ def main():
     print()
     
     if not all(c.isOpened() for c in caps):
-        
         print(ERROR + "could not open videos.")
-        return
+        return False
 
-    triangulator = MultiviewTriangulator(CALIBRATION_FILE, VIDEO_PATHS)
+    try:
+        triangulator = MultiviewTriangulator(CALIBRATION_FILE, VIDEO_PATHS)
+    except Exception as exc:
+        print(ERROR + f"Could not load calibration file {CALIBRATION_FILE}: {exc}")
+        return False
 
     # initialization
     frames_0 = []
@@ -143,8 +147,26 @@ def main():
         r = next(inferencer(f, return_vis=False))
         res_0.append(r["predictions"][0])
 
+    if os.environ.get("PREVIEW_ONLY"):
+        preview_dir = os.path.dirname(OUTPUT_CSV)
+        os.makedirs(preview_dir, exist_ok=True)
+        preview_stem = os.path.splitext(os.path.basename(OUTPUT_CSV))[0]
+        annotated, bboxes = draw_person_boxes(frames_0[0], res_0[0])
+        preview_jpg = os.path.join(preview_dir, f"{preview_stem}_frame0_preview.jpg")
+        preview_json = os.path.join(preview_dir, f"{preview_stem}_bboxes.json")
+        cv2.imwrite(preview_jpg, annotated)
+        with open(preview_json, "w") as f:
+            json.dump({"bboxes": bboxes}, f)
+        print(SUCCESS + f"Preview written: {preview_jpg}, {preview_json}")
+        return True
+
     selector = PersonSelector()
-    target_idx = selector.select_person(frames_0[0], res_0[0])
+    preset_idx = os.environ.get("PRESET_TARGET_IDX")
+    if preset_idx is not None:
+        target_idx = int(preset_idx)
+        print(INFO + f"Using preset target person index: {target_idx}")
+    else:
+        target_idx = selector.select_person(frames_0[0], res_0[0])
 
     # store ALL keypoints for matching
     ref_kpts = res_0[0][target_idx]["keypoints"]
@@ -172,13 +194,16 @@ def main():
 
     frame_idx = 0
 
-    # Setup Visualization
-    plt.ion()
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection="3d")
+    headless = bool(os.environ.get("HEADLESS"))
 
-    # View initialization (Looking from side/top)
-    ax.view_init(elev=20, azim=45)
+    # Setup Visualization (skipped when running headless, e.g. as a web-app job)
+    if not headless:
+        plt.ion()
+        fig = plt.figure(figsize=(10, 8))
+        ax = fig.add_subplot(111, projection="3d")
+
+        # View initialization (Looking from side/top)
+        ax.view_init(elev=20, azim=45)
 
     while True:
         frames = [c.read()[1] for c in caps]
@@ -329,8 +354,8 @@ def main():
 
         final_data.append(smoothed)
 
-        # Visualization
-        if i % 2 == 0:  # Visualize every 2nd frame
+        # Visualization (skipped when running headless)
+        if not headless and i % 2 == 0:  # Visualize every 2nd frame
             ax.cla()
             valid = smoothed[~np.isnan(smoothed[:, 0])]
 
@@ -389,11 +414,14 @@ def main():
 
     # keep plot open for a moment
     print(SUCCESS + f"file saved: {OUTPUT_CSV}")
-    print(INFO + "closing in 3 seconds...")
-    plt.pause(3)
-    cv2.destroyAllWindows()
-    plt.close()
+    if not headless:
+        print(INFO + "closing in 3 seconds...")
+        plt.pause(3)
+        cv2.destroyAllWindows()
+        plt.close()
+
+    return True
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(0 if main() else 1)

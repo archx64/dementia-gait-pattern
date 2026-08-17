@@ -1,0 +1,34 @@
+services:
+  webapp:
+    build: .
+    image: gait-webapp:latest
+    container_name: gait-webapp
+    ports:
+      - "8000:8000"
+    volumes:
+      # The whole repo root, mounted as the pipeline's working directory (see
+      # app/config.py's WORKSPACE_DIR) -- this is deliberate, not just
+      # convenient: pre-existing data (synchronized_meeting/,
+      # calibration_2_cam_17_07/, etc.) already lives here from CLI/manual
+      # use, matching the exact directory-naming convention
+      # src/utils_floor_align.py expects, so it's usable from the web app
+      # without re-uploading anything. The app never writes into config/ or
+      # any code directory -- its own state lives under ./webapp (see
+      # SESSION_YAML_PATH in app/config.py, which deliberately avoids the
+      # tracked config/session.yaml).
+      - .:/data
+      # External MMPose config + weights tree (~2.1GB, LIB_DIR in
+      # src/utils_floor_align.py) -- too large to bake into the image.
+      - /home/aicenter/Dev/lib:/home/aicenter/Dev/lib:ro
+      # MMPoseInferencer's auto-fetched person-detector checkpoint (verified
+      # by actually running it -- see Dockerfile). Without this, every fresh
+      # container re-downloads it from download.openmmlab.com on first use.
+      - /home/aicenter/.cache/torch/hub/checkpoints:/root/.cache/torch/hub/checkpoints
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped

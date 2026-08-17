@@ -1,0 +1,10 @@
+alignment_method: pca
+camera_count: 2
+day: 17
+input_dir: synchronized_meeting
+month: 7
+output_dir: output_meeting
+p_no: 1
+round: 1
+subject_name: TUG
+total_rounds: 1

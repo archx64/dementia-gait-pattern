@@ -19,15 +19,15 @@ from src.utils_floor_align import MONTH, DAY
 # STARTING_FRAME =  20853
 # CAMERA = 1
 
-STARTING_FRAME = 47906
+STARTING_FRAME = 1487
 CAMERA = 1
 
-# PARENT_DIRECTORY = "/home/aicenter/Dev/dementia-gait-pattern/calibration_mahidol"
+# PARENT_DIRECTORY = "/home/aicenter/Dev/dementia-gait-pattern/calibration_mahidol"        
 
 # SOURCE_DIRECTORY = os.path.join(PARENT_DIRECTORY, f"all_frames_31_03/cam{CAMERA}")
 # DESTINATION_DIRECTORY = os.path.join(PARENT_DIRECTORY, f"selected_frames_31_03/cam{CAMERA}")
 
-PARENT_DIRECTORY = "/home/aicenter/Dev/dementia-gait-pattern/calibration_meeting"
+PARENT_DIRECTORY = "/home/aicenter/Dev/dementia-gait-pattern/calibration_phramongkut"
 SOURCE_DIRECTORY = os.path.join(PARENT_DIRECTORY, f"all_frames_{DAY:02d}_{MONTH:02d}/cam{CAMERA}")
 DESTINATION_DIRECTORY = os.path.join(PARENT_DIRECTORY, f"selected_frames_{DAY:02d}_{MONTH:02d}/cam{CAMERA}")
 
@@ -97,8 +97,8 @@ def main():
         source_dir=SOURCE_DIRECTORY, 
         dest_dir=DESTINATION_DIRECTORY, 
         start_frame=STARTING_FRAME, 
-        fps=100, 
-        middle_offset=50
+        fps=12, 
+        middle_offset=6
     )
 
 if __name__ == "__main__":

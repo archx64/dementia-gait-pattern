@@ -37,7 +37,7 @@ from src.utils_floor_align import (
     WARNING,
     detect_corners,
 )
-from src.calibrate_intrinsics_datasheet import (
+from deprecated.calibrate_intrinsics_datasheet import (
     calibrate_free,
     calibrate_fixed_focal_length,
 )

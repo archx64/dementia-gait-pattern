@@ -1,4 +1,4 @@
-import os, glob, cv2, json
+import os, sys, glob, cv2, json
 import numpy as np
 from src.utils_floor_align import (
     SQUARES_X,
@@ -124,10 +124,12 @@ def detect_corners(cam_config):
     all_ids = []
     img_shape = None
 
-    # create a window
+    # create a window (skipped when running headless, e.g. as a web-app job)
+    headless = bool(os.environ.get("HEADLESS"))
     window_name = f"Detection View: {name}"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 1280, 720)  # set window size to managable size
+    if not headless:
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, 1280, 720)  # set window size to managable size
 
     for fname in images:
         img = cv2.imread(fname)
@@ -195,21 +197,23 @@ def detect_corners(cam_config):
             thickness=2,
         )
 
-        # show window
-        cv2.imshow(window_name, vis_img)
+        # show window (skipped when running headless)
+        if not headless:
+            cv2.imshow(window_name, vis_img)
 
-        # wait 100ms for each frame. Press 'ESC' to skip this camera.
-        wait_key = cv2.waitKey(100)
-        if wait_key == 27:  # ESC key
-            print(DEBUG + f"[{name}] Skipping visualization...")
-            break
+            # wait 100ms for each frame. Press 'ESC' to skip this camera.
+            wait_key = cv2.waitKey(100)
+            if wait_key == 27:  # ESC key
+                print(DEBUG + f"[{name}] Skipping visualization...")
+                break
 
-    cv2.destroyWindow(window_name)
+    if not headless:
+        cv2.destroyWindow(window_name)
 
     # safety check
     if img_shape is None:
         print(ERROR + f"CRITICAL ERROR in {name}: Image shape could not be determined!")
-        exit()
+        sys.exit(1)
 
     print(
         SUCCESS
@@ -229,7 +233,7 @@ def main():
     for cam in CAMERAS:
         res = detect_corners(cam)
         if res is None:
-            exit()
+            sys.exit(1)
 
         results[cam["name"]] = res
         # print(DEBUG + f'data type of results: {type(results)}')
@@ -255,7 +259,7 @@ def main():
                 ERROR
                 + f"not enough valid ChArUco corners found for {name}. Could not calibrate..."
             )
-            exit()
+            sys.exit(1)
 
         inputK = np.array([])
         inputD = np.array([])
@@ -280,7 +284,7 @@ def main():
 
     if not ref_cam:
         print(ERROR + "Error: No camera marked as 'is_reference': 'True'")
-        exit()
+        sys.exit(1)
 
     ref_name = ref_cam["name"]
     ref_data = results[ref_name]["data_dict"]
@@ -406,8 +410,9 @@ def main():
     # save_path = f"synchronized_videos/multicam_calibration_{CAMERA_COUNT}_{TARGET_PAPER}.npz"
     np.savez(CALIBRATION_FILE, **save_dict)
     print(SUCCESS + f"\nsaved all parameters to {CALIBRATION_FILE}")
+    return True
 
 
 if __name__ == "__main__":
     # detect_corners(CAMERAS[1])
-    main()
+    sys.exit(0 if main() else 1)

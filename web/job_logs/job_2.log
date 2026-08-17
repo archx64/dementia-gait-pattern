@@ -1,0 +1,31 @@
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/usr/local/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/src/pose_estimation.py", line 4, in <module>
+    from mmpose.apis import MMPoseInferencer
+  File "/usr/local/lib/python3.10/site-packages/mmpose/apis/__init__.py", line 2, in <module>
+    from .inference import (collect_multi_frames, inference_bottomup,
+  File "/usr/local/lib/python3.10/site-packages/mmpose/apis/inference.py", line 16, in <module>
+    from mmpose.datasets.datasets.utils import parse_pose_metainfo
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/__init__.py", line 3, in <module>
+    from .dataset_wrappers import CombinedDataset
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/dataset_wrappers.py", line 11, in <module>
+    from .datasets.utils import parse_pose_metainfo
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/datasets/__init__.py", line 2, in <module>
+    from .animal import *  # noqa: F401, F403
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/datasets/animal/__init__.py", line 2, in <module>
+    from .animalkingdom_dataset import AnimalKingdomDataset
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/datasets/animal/animalkingdom_dataset.py", line 3, in <module>
+    from ..base import BaseCocoStyleDataset
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/datasets/base/__init__.py", line 2, in <module>
+    from .base_coco_style_dataset import BaseCocoStyleDataset
+  File "/usr/local/lib/python3.10/site-packages/mmpose/datasets/datasets/base/base_coco_style_dataset.py", line 13, in <module>
+    from xtcocotools.coco import COCO
+  File "/usr/local/lib/python3.10/site-packages/xtcocotools/coco.py", line 58, in <module>
+    from . import mask as maskUtils
+  File "/usr/local/lib/python3.10/site-packages/xtcocotools/mask.py", line 3, in <module>
+    import xtcocotools._mask as _mask
+  File "xtcocotools/_mask.pyx", line 1, in init xtcocotools._mask
+ValueError: numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject

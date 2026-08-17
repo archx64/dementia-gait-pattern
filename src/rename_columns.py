@@ -1,6 +1,6 @@
 import re
 import pandas as pd
-from src.keypoints import keypoint_names
+from deprecated.keypoints import keypoint_names
 
 INPUT = '3.csv'
 OUTPUT = 'renamed.csv'

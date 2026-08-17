@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}New Session{% endblock %}
+{% block content %}
+<h1>New Session</h1>
+<form method="post" action="/sessions/new" class="form">
+  <label>Subject name <input type="text" name="subject_name" required></label>
+  <label>Day <input type="number" name="day" min="1" max="31" required></label>
+  <label>Month <input type="number" name="month" min="1" max="12" required></label>
+  <label>Participant number <input type="number" name="p_no" min="1" required></label>
+  <label>Total rounds (how many times this subject walks) <input type="number" name="total_rounds" min="1" value="1" required></label>
+  <label>Camera count
+    <select name="camera_count">
+      <option value="2">2</option>
+      <option value="3">3</option>
+      <option value="4">4</option>
+    </select>
+  </label>
+  <label>Input directory (site) <input type="text" name="input_dir" value="synchronized_meeting" required></label>
+  <label>Output directory <input type="text" name="output_dir" value="output_meeting" required></label>
+  <label>Floor alignment method
+    <select name="alignment_method">
+      <option value="pca">PCA (default)</option>
+      <option value="charuco">ChArUco</option>
+    </select>
+  </label>
+  <button type="submit" class="button">Create &amp; continue to file upload</button>
+</form>
+{% endblock %}

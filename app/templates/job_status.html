@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Job #{{ job.id }}{% endblock %}
+{% block content %}
+<h1>Job #{{ job.id }} — {{ job.job_type }}</h1>
+<p>Status: <span id="job-status">{{ job.status }}</span></p>
+<pre id="job-log" class="log-box"></pre>
+<p id="job-error" class="error"></p>
+<a href="{{ next_url }}" id="continue-link" class="button" style="display:none">Continue</a>
+
+<script>
+(function () {
+  const jobId = {{ job.id }};
+  const nextUrl = {{ next_url|tojson }};
+  const statusEl = document.getElementById("job-status");
+  const logEl = document.getElementById("job-log");
+  const errorEl = document.getElementById("job-error");
+  const continueLink = document.getElementById("continue-link");
+  continueLink.href = nextUrl;
+
+  async function poll() {
+    const res = await fetch(`/jobs/${jobId}/status.json`);
+    const data = await res.json();
+    statusEl.textContent = data.status;
+    logEl.textContent = data.log_tail || "";
+    if (data.error_message) {
+      errorEl.textContent = data.error_message;
+    }
+    if (data.status === "succeeded" || data.status === "failed") {
+      continueLink.style.display = "inline-block";
+      return;
+    }
+    setTimeout(poll, 2000);
+  }
+  poll();
+})();
+</script>
+{% endblock %}

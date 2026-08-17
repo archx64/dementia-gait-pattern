@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Upload calibration images{% endblock %}
+{% block content %}
+<h1>Upload calibration images</h1>
+<p>Session: {{ session.subject_name }} — {{ "%02d"|format(session.day) }}-{{ "%02d"|format(session.month) }},
+   p{{ session.p_no }}, {{ session.camera_count }} cameras, {{ session.total_rounds }} rounds</p>
+<p class="muted">These ChArUco calibration photos are shared across every round of this session —
+   you'll upload each round's videos separately from the session page.</p>
+
+<form method="post" action="/sessions/{{ session.id }}/upload" enctype="multipart/form-data" class="form">
+  {% for i in camera_range %}
+  <fieldset>
+    <legend>Camera {{ i }}{% if i == 1 %} (reference){% endif %}</legend>
+    <label>ChArUco calibration images (select multiple .jpg)
+      <input type="file" name="cam{{ i }}_images" multiple accept="image/jpeg">
+    </label>
+    {% if i == 1 %}
+    <label>Floor image (floor.jpg, optional — needed only for ChArUco floor alignment)
+      <input type="file" name="floor_image" accept="image/jpeg">
+    </label>
+    {% endif %}
+  </fieldset>
+  {% endfor %}
+  <button type="submit" class="button">Upload</button>
+</form>
+{% endblock %}

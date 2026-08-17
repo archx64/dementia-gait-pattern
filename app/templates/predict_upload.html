@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Predict from CSV{% endblock %}
+{% block content %}
+<h1>Predict Gait Parameters from a Skeleton CSV</h1>
+<p class="muted">Upload a skeleton CSV produced by pose estimation (needs the feet-keypoint columns
+   j17/j19/j20/j22 &times; x/y/z) and pick a model to run it against — no session required.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if models %}
+<form method="post" action="/predict" enctype="multipart/form-data" class="form">
+  <label>Skeleton CSV
+    <input type="file" name="skeleton_csv" accept=".csv" required>
+  </label>
+  <label>Gait model
+    <select name="model_id" required>
+      {% for m in models %}
+      <option value="{{ m.id }}">{{ m.filename }} ({{ m.uploaded_at.strftime("%Y-%m-%d") }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="button">Predict</button>
+</form>
+{% else %}
+<p>No gait models uploaded yet. <a href="/models">Upload one</a> first.</p>
+{% endif %}
+{% endblock %}
